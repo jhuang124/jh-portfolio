@@ -12,88 +12,63 @@ const links = [
 export default function Nav() {
   const [scrolled, setScrolled] = useState(false);
   const [active, setActive] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => {
+    const onScroll = () => {
       setScrolled(window.scrollY > 40);
-      const sections = links.map((l) => l.href.replace("#", ""));
-      for (const id of [...sections].reverse()) {
-        const el = document.getElementById(id);
-        if (el && window.scrollY >= el.offsetTop - 120) {
-          setActive(id);
-          break;
+
+      let current = "";
+      for (const l of links) {
+        const el = document.getElementById(l.href.slice(1));
+        if (el && el.getBoundingClientRect().top < 120) {
+          current = l.href.slice(1);
         }
       }
+      setActive(current);
     };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   return (
-    <nav
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 50,
-        borderBottom: scrolled
-          ? "1px solid var(--border)"
-          : "1px solid transparent",
-        backgroundColor: scrolled ? "rgba(245,241,235,0.97)" : "transparent",
-        backdropFilter: scrolled ? "blur(8px)" : "none",
-        transition: "all 0.3s ease",
-        padding: "0 3rem",
-        height: "64px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-      }}
-    >
-      <a
-        href="#hero"
-        style={{
-          fontFamily: "var(--serif)",
-          fontStyle: "italic",
-          fontSize: "24px",
-          fontWeight: 400,
-          letterSpacing: "0.3px",
-          color: "var(--text)",
-          textDecoration: "none",
-        }}
-      >
-        John Huang
-      </a>
+    <>
+      <nav className={`nav ${scrolled ? "nav--scrolled" : ""}`}>
+        <a href="#hero" className="nav-brand">John Huang</a>
 
-      <div style={{ display: "flex", gap: "2.5rem" }}>
-        {links.map((l) => {
-          const id = l.href.replace("#", "");
-          return (
-            <a
-              key={l.label}
-              href={l.href}
-              style={{
-                fontFamily: "var(--sans)",
-                fontSize: "13px",
-                fontWeight: 600,
-                letterSpacing: "0.8px",
-                color: active === id ? "var(--accent)" : "var(--text-dim)",
-                textDecoration: "none",
-                transition: "color 0.2s ease",
-              }}
-              onMouseEnter={(e) => {
-                if (active !== id) e.currentTarget.style.color = "var(--text)";
-              }}
-              onMouseLeave={(e) => {
-                if (active !== id)
-                  e.currentTarget.style.color = "var(--text-dim)";
-              }}
-            >
-              {l.label}
-            </a>
-          );
-        })}
+        <ul className="nav-links">
+          {links.map((link) => (
+            <li key={link.href}>
+              <a
+                href={link.href}
+                className={`nav-link ${active === link.href.slice(1) ? "nav-link--active" : ""}`}
+              >
+                {link.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+
+        <button
+          className="nav-hamburger"
+          onClick={() => setMenuOpen(!menuOpen)}
+          aria-label="Toggle menu"
+        >
+          <span />
+          <span />
+          <span />
+        </button>
+      </nav>
+
+      <div className={`mobile-menu ${menuOpen ? "mobile-menu--open" : ""}`}>
+        {links.map((link) => (
+          <a key={link.href} href={link.href} onClick={() => setMenuOpen(false)}>
+            {link.label.charAt(0) + link.label.slice(1).toLowerCase()}
+          </a>
+        ))}
       </div>
-    </nav>
+    </>
   );
 }

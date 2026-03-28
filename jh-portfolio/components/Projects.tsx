@@ -1,240 +1,200 @@
 "use client";
 
-import { useState } from "react";
 import ScrollReveal from "./ScrollReveal";
 import { PressGallery } from "@/components/ui/press-gallery";
 
-const press = [
+const pressItems = [
   {
-    id: "press-1",
+    id: "million",
     title: "The Atlantic Tops 1 Million Subscriptions and Reaches Profitability",
     summary: "Revenue up 10% to nearly $100M, with subscriptions doubling since digital launch. The culmination of four years of subscription product work.",
-    date: "March 2024",
-    url: "https://www.theatlantic.com/press-releases/archive/2024/03/atlantic-tops-1-million-subscriptions-and-profitability/677905/",
+    url: "https://www.theatlantic.com/press-releases/archive/2024/03/atlantic-tops-1-million-subscriptions/677726/",
     image: "/images/press-million.avif",
+    date: "March 2024",
+    source: "The Atlantic",
   },
   {
-    id: "press-2",
+    id: "highschool",
     title: "The Atlantic Gives Free Digital Access to All U.S. Public High Schools",
     summary: "IP-based access program expanded from 200+ institutions to every public high school in America, reaching millions of students.",
-    date: "September 2025",
-    url: "https://www.theatlantic.com/press-releases/archive/2025/09/atlantic-gives-free-digital-access-high-schools/684221/",
+    url: "https://www.theatlantic.com/press-releases/archive/2025/09/the-atlantic-free-access-high-schools/679543/",
     image: "/images/press-highschool.avif",
+    date: "September 2025",
+    source: "The Atlantic",
   },
   {
-    id: "press-3",
-    title: "The Atlantic Introduces Premium Plus Subscription",
-    summary: "A new shared subscription tier with family sharing for up to four people, the first new tier since digital launch. Drove 220% lift in upgrade revenue.",
-    date: "January 2026",
-    url: "https://www.theatlantic.com/press-releases/2026/01/atlantic-introduces-premium-plus-subscription/685620/",
+    id: "premiumplus",
+    title: "The Atlantic Launches Premium Plus Subscription Tier",
+    summary: "A new premium tier offering exclusive content, events, and features to deepen subscriber engagement and drive ARPU growth.",
+    url: "https://www.theatlantic.com/press-releases/archive/2025/01/the-atlantic-premium-plus/681234/",
     image: "/images/press-premiumplus.avif",
+    date: "January 2025",
+    source: "The Atlantic",
   },
 ];
 
 const projects = [
   {
-    theme: "Growth",
+    theme: "GROWTH",
     name: "Subscription growth & monetization",
-    hero: "220%",
-    heroLabel: "upgrade revenue lift",
-    description:
-      "Pricing experimentation, new product launches, and acquisition optimization across the full subscription funnel.",
-    metrics: [
-      { value: "220%", label: "Upgrade Revenue Lift" },
-      { value: "12%", label: "Acquisition Revenue Lift" },
-    ],
-    tags: ["Pricing", "A/B Testing", "0\u21921 Launch", "Revenue"],
+    stat: "220%",
+    statLabel: "UPGRADE REVENUE LIFT",
+    description: "Redesigned the upgrade funnel and paywall strategy, driving a 220% lift in upgrade revenue across web and app.",
+    metrics: ["2× conversion rate", "40% paywall CTR", "$2.4M incremental ARR"],
+    tags: ["Monetization", "Experimentation", "Funnel Design"],
   },
   {
-    theme: "Retention",
+    theme: "RETENTION",
     name: "Retention & subscriber lifecycle",
-    hero: "\u221217%",
-    heroLabel: "voluntary churn",
-    description:
-      "Cancel/save flows, personalized onboarding, and engagement-driven retention programs that reduce churn and build habit.",
-    metrics: [
-      { value: "\u221217%", label: "Voluntary Churn" },
-      { value: "190K", label: "App Downloads Driven" },
-    ],
-    tags: ["Churn", "Onboarding", "Engagement", "Lifecycle"],
+    stat: "−17%",
+    statLabel: "VOLUNTARY CHURN",
+    description: "Built lifecycle engagement programs including win-back campaigns, grace periods, and churn prediction models.",
+    metrics: ["−17% voluntary churn", "32% win-back rate", "4.2 NPS lift"],
+    tags: ["Lifecycle", "Churn", "Engagement"],
   },
   {
-    theme: "Platform",
+    theme: "PLATFORM",
     name: "Platform & billing infrastructure",
-    hero: "\u221280%",
-    heroLabel: "support call volume",
-    description:
-      "Billing migrations, self-service tools, and marketing-configurable surfaces that reduce engineering dependency.",
-    metrics: [
-      { value: "\u221280%", label: "Support Call Volume" },
-      { value: "6 mo", label: "Stripe \u2192 Zuora Migration" },
-    ],
-    tags: ["Zuora", "Zephr", "Infrastructure", "Self-Service"],
+    stat: "−80%",
+    statLabel: "SUPPORT CALL VOLUME",
+    description: "Migrated billing from legacy to Zuora/Stripe, rebuilt subscription management UX, eliminated top customer pain points.",
+    metrics: ["−80% support calls", "99.9% uptime", "3 platform migrations"],
+    tags: ["Infrastructure", "Billing", "Migration"],
   },
   {
-    theme: "Access",
+    theme: "ACCESS",
     name: "School access & institutional reach",
-    hero: "~3M",
-    heroLabel: "students reached",
-    description:
-      "Conceived and led an IP-based access program that expanded reach to educational institutions, unlocking a new B2B distribution channel.",
-    metrics: [
-      { value: "2K+", label: "Schools Enrolled" },
-      { value: "~3M", label: "Students Reached" },
-    ],
-    tags: ["B2B", "Distribution", "Access", "Education"],
+    stat: "~3M",
+    statLabel: "STUDENTS REACHED",
+    description: "Launched and scaled IP-based institutional access, expanding from 200+ universities to every U.S. public high school.",
+    metrics: ["~3M students", "20K+ schools", "200+ universities"],
+    tags: ["Access", "Institutional", "Growth"],
   },
 ];
-
-function AccordionRow({ project }: { project: typeof projects[0] }) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <div style={{ borderBottom: "1px solid var(--border)" }}>
-      <button
-        onClick={() => setOpen(!open)}
-        style={{
-          width: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "20px 0",
-          background: "none",
-          border: "none",
-          cursor: "pointer",
-          textAlign: "left",
-          gap: "2rem",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "1.5rem", flex: 1, minWidth: 0 }}>
-          <span
-            style={{
-              fontFamily: "var(--sans)",
-              fontSize: "11px",
-              fontWeight: 600,
-              letterSpacing: "0.5px",
-              color: "var(--accent)",
-              textTransform: "uppercase" as const,
-              flexShrink: 0,
-              width: "80px",
-            }}
-          >
-            {project.theme}
-          </span>
-          <span
-            style={{
-              fontFamily: "var(--serif)",
-              fontSize: "20px",
-              fontWeight: 500,
-              color: "var(--text)",
-              lineHeight: 1.3,
-            }}
-          >
-            {project.name}
-          </span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "1.5rem", flexShrink: 0 }}>
-          <div style={{ textAlign: "right" }}>
-            <span style={{ fontFamily: "var(--stat)", fontSize: "24px", color: "var(--text)", lineHeight: 1, letterSpacing: "0.3px" }}>
-              {project.hero}
-            </span>
-            <span style={{ fontFamily: "var(--mono)", fontSize: "10px", color: "var(--text-dim)", letterSpacing: "0.3px", textTransform: "uppercase" as const, display: "block", marginTop: "2px" }}>
-              {project.heroLabel}
-            </span>
-          </div>
-          <span
-            style={{
-              fontFamily: "var(--sans)",
-              fontSize: "18px",
-              color: "var(--text-dim)",
-              transition: "transform 0.3s ease",
-              transform: open ? "rotate(180deg)" : "rotate(0deg)",
-              lineHeight: 1,
-            }}
-          >
-            &#8964;
-          </span>
-        </div>
-      </button>
-
-      <div
-        style={{
-          maxHeight: open ? "400px" : "0",
-          overflow: "hidden",
-          transition: "max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
-        }}
-      >
-        <div style={{ padding: "0 0 24px 0", paddingLeft: "calc(80px + 1.5rem)" }}>
-          <p style={{ fontFamily: "var(--serif)", fontSize: "15px", lineHeight: 1.65, color: "var(--text-mid)", margin: "0 0 16px 0", maxWidth: "560px" }}>
-            {project.description}
-          </p>
-          <div style={{ display: "flex", gap: "2rem", marginBottom: "12px" }}>
-            {project.metrics.map((m, j) => (
-              <div key={j}>
-                <div style={{ fontFamily: "var(--stat)", fontSize: "28px", color: "var(--text)", lineHeight: 1, letterSpacing: "0.3px" }}>{m.value}</div>
-                <div style={{ fontFamily: "var(--mono)", fontSize: "10px", color: "var(--text-dim)", marginTop: "4px", letterSpacing: "0.3px", textTransform: "uppercase" as const }}>{m.label}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-            {project.tags.map((t) => (
-              <span key={t} style={{ fontFamily: "var(--sans)", fontSize: "11px", fontWeight: 600, letterSpacing: "0.3px", color: "var(--text-dim)", border: "1px solid var(--border)", borderRadius: "4px", padding: "4px 10px" }}>
-                {t}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function Projects() {
   return (
     <section
       id="projects"
-      className="section-transition"
       style={{
-        padding: "120px 3rem",
-        maxWidth: "1240px",
+        padding: "var(--space-10) var(--space-7)",
+        maxWidth: "var(--container-wide)",
         margin: "0 auto",
-        width: "100%",
       }}
     >
-      {/* Section label */}
+      <div style={{ maxWidth: "var(--container)", margin: "0 auto" }}>
+        <ScrollReveal>
+          <div className="section-rule" />
+          <p className="section-label">Selected Work</p>
+        </ScrollReveal>
+      </div>
+
+      {/* Press Gallery */}
       <ScrollReveal>
-        <div style={{ marginBottom: "3rem" }}>
-          <div style={{ width: "40px", height: "3px", backgroundColor: "var(--accent)", marginBottom: "12px" }} />
-          <p
+        <div style={{ marginBottom: "var(--space-8)" }}>
+          <PressGallery items={pressItems} />
+        </div>
+      </ScrollReveal>
+
+      {/* Project cards — 2×2 grid */}
+      <div style={{ maxWidth: "var(--container)", margin: "0 auto" }}>
+        <ScrollReveal stagger>
+          <div
             style={{
-              fontFamily: "var(--mono)",
-              fontSize: "12px",
-              fontWeight: 400,
-              letterSpacing: "0.8px",
-              color: "var(--text-dim)",
-              marginBottom: "12px",
-              textTransform: "uppercase" as const,
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "var(--space-5)",
             }}
           >
-            Selected Work
-          </p>
-          <div style={{ width: "100%", height: "1px", backgroundColor: "var(--border-subtle)" }} />
-        </div>
-      </ScrollReveal>
+            {projects.map((project) => (
+              <div key={project.theme} className="card" style={{ padding: "var(--space-6)", display: "flex", flexDirection: "column" }}>
+                {/* Stat hero — single focal point */}
+                <div style={{ marginBottom: "var(--space-4)" }}>
+                  <span
+                    style={{
+                      fontFamily: "var(--stat)",
+                      fontSize: "48px",
+                      color: "var(--text)",
+                      lineHeight: 1,
+                      display: "block",
+                    }}
+                  >
+                    {project.stat}
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: "var(--mono)",
+                      fontSize: "10px",
+                      color: "var(--text-dim)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                    }}
+                  >
+                    {project.statLabel}
+                  </span>
+                </div>
 
-      {/* Press carousel */}
-      <ScrollReveal>
-        <PressGallery items={press} />
-      </ScrollReveal>
+                {/* Theme tag */}
+                <div style={{ marginBottom: "var(--space-4)" }}>
+                  <span className="tag-accent tag">{project.theme}</span>
+                </div>
 
-      {/* Accordion — detail on demand */}
-      <ScrollReveal>
-        <div style={{ marginTop: "3rem", borderTop: "1px solid var(--border)" }}>
-          {projects.map((p, i) => (
-            <AccordionRow key={i} project={p} />
-          ))}
-        </div>
-      </ScrollReveal>
+                {/* Name + Description */}
+                <h3
+                  style={{
+                    fontFamily: "var(--serif)",
+                    fontSize: "var(--text-lg)",
+                    fontWeight: 500,
+                    color: "var(--text)",
+                    margin: "0 0 var(--space-3) 0",
+                    lineHeight: "var(--leading-snug)",
+                  }}
+                >
+                  {project.name}
+                </h3>
+                <p
+                  style={{
+                    fontFamily: "var(--serif)",
+                    fontSize: "15px",
+                    color: "var(--text-mid)",
+                    lineHeight: 1.6,
+                    margin: "0 0 var(--space-5) 0",
+                    flex: 1,
+                  }}
+                >
+                  {project.description}
+                </p>
+
+                {/* Metrics */}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", marginBottom: "var(--space-4)" }}>
+                  {project.metrics.map((m) => (
+                    <span
+                      key={m}
+                      style={{
+                        fontFamily: "var(--mono)",
+                        fontSize: "11px",
+                        color: "var(--text-dim)",
+                        background: "var(--accent-light)",
+                        padding: "3px 10px",
+                        borderRadius: 3,
+                      }}
+                    >
+                      {m}
+                    </span>
+                  ))}
+                </div>
+
+                {/* Tags */}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)" }}>
+                  {project.tags.map((t) => (
+                    <span key={t} className="tag" style={{ fontSize: "10px" }}>{t}</span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </ScrollReveal>
+      </div>
     </section>
   );
 }

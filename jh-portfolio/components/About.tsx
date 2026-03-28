@@ -7,98 +7,118 @@ export default function About() {
   return (
     <section
       id="about"
-      className="section-transition"
       style={{
-        padding: "80px 3rem",
-        maxWidth: "1240px",
+        padding: "var(--space-10) var(--space-7)",
+        maxWidth: "var(--container)",
         margin: "0 auto",
-        width: "100%",
       }}
     >
-      {/* Varied opening — no red rule, just a quiet label */}
       <ScrollReveal>
-        <p
-          style={{
-            fontFamily: "var(--mono)",
-            fontSize: "12px",
-            fontWeight: 400,
-            letterSpacing: "0.8px",
-            color: "var(--text-dim)",
-            marginBottom: "3rem",
-            textTransform: "uppercase" as const,
-          }}
-        >
-          About
-        </p>
+        <div className="section-rule" />
+        <p className="section-label">About</p>
       </ScrollReveal>
 
-      {/* Editorial two-column: bio left, photo right */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "1.2fr 0.8fr",
-          gap: "4rem",
+          gridTemplateColumns: "0.75fr 1.25fr",
+          gap: "var(--space-8)",
           alignItems: "start",
         }}
       >
-        {/* Bio */}
+        {/* Photo — left */}
         <ScrollReveal direction="left">
+          <div>
+            <div
+              style={{
+                position: "relative",
+                overflow: "hidden",
+                borderRadius: 6,
+                boxShadow: "var(--shadow-lg)",
+              }}
+            >
+              <Image
+                src="/images/headshot.png"
+                alt="John Huang"
+                width={400}
+                height={500}
+                style={{
+                  width: "100%",
+                  height: "auto",
+                  objectFit: "cover",
+                  aspectRatio: "4 / 5",
+                  display: "block",
+                }}
+              />
+            </div>
+            {/* Overlapping detail card */}
+            <div
+              style={{
+                position: "relative",
+                marginTop: -20,
+                marginLeft: "auto",
+                marginRight: 16,
+                width: "fit-content",
+                background: "var(--surface)",
+                border: "1px solid var(--border)",
+                borderRadius: 6,
+                padding: "12px 20px",
+                boxShadow: "var(--shadow-sm)",
+                zIndex: 1,
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: "var(--mono)",
+                  fontSize: "var(--text-xs)",
+                  color: "var(--text-dim)",
+                  letterSpacing: "0.5px",
+                  textTransform: "uppercase",
+                }}
+              >
+                4 years at The Atlantic
+              </span>
+            </div>
+          </div>
+        </ScrollReveal>
+
+        {/* Bio — right */}
+        <ScrollReveal direction="right">
           <div>
             <p
               style={{
                 fontFamily: "var(--serif)",
-                fontSize: "20px",
-                lineHeight: 1.75,
+                fontSize: "var(--text-lg)",
                 color: "var(--text)",
-                marginBottom: "1.5rem",
+                lineHeight: "var(--leading-relaxed)",
+                margin: "0 0 var(--space-5) 0",
               }}
             >
-              I grew up running my family&apos;s retail business in Florida,
-              negotiating with vendors, reading customer behavior, and figuring
-              out what people would actually pay for. That instinct followed me
-              to Columbia, where I studied economics and engineering, and then to
-              The Atlantic, where I&apos;ve spent the last four years turning it
-              into a subscription product practice.
+              I grew up working in my family&apos;s business, a small dollar store in the Midwest.
+              That&apos;s where I learned to care about what makes someone reach for their wallet
+              and come back the next week. I studied economics and philosophy at Columbia,
+              then brought that same instinct to The Atlantic, where I&apos;ve spent the last four
+              years building subscription products.
             </p>
+
+            {/* Pull quote */}
+            <div className="pull-quote">
+              &mdash; Figuring out what people would actually pay for, and making sure they kept paying.
+            </div>
+
             <p
               style={{
                 fontFamily: "var(--serif)",
-                fontSize: "18px",
-                lineHeight: 1.75,
+                fontSize: "17px",
                 color: "var(--text-mid)",
-                marginBottom: "2.5rem",
+                lineHeight: "var(--leading-relaxed)",
+                margin: 0,
               }}
             >
-              I own monetization end-to-end: checkout, pricing, retention,
-              billing infrastructure, and new product launches. I&apos;m looking
-              for my next role where I can bring that same rigor to a product
-              people genuinely value.
+              Today I own monetization, lifecycle, and billing infrastructure across The Atlantic&apos;s
+              digital products. I&apos;m looking for my next role at a company where product quality
+              and business model are the same conversation.
             </p>
-
-          </div>
-        </ScrollReveal>
-
-        {/* Headshot */}
-        <ScrollReveal direction="right">
-          <div
-            style={{
-              width: "100%",
-              maxWidth: "360px",
-              aspectRatio: "4 / 5",
-              borderRadius: "10px",
-              overflow: "hidden",
-              border: "2px solid var(--border)",
-              boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
-              justifySelf: "end",
-            }}
-          >
-            <Image
-              src="/images/headshot.png"
-              alt="John Huang"
-              width={360}
-              height={450}
-              style={{ objectFit: "cover", width: "100%", height: "100%" }}
-            />
           </div>
         </ScrollReveal>
       </div>

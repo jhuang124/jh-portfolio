@@ -1,67 +1,59 @@
-"use client";
-
-const links = [
-  {
-    label: "LinkedIn",
-    href: "https://www.linkedin.com/in/john-huang-95909a156/",
-  },
-  { label: "Email", href: "mailto:huangjohn1997@gmail.com" },
-];
-
 export default function Footer() {
   return (
     <footer
       style={{
-        padding: "2.5rem 3rem",
-        maxWidth: "1240px",
-        margin: "0 auto",
-        width: "100%",
-        borderTop: "1px solid var(--border-subtle)",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        flexWrap: "wrap",
-        gap: "1rem",
+        borderTop: "2px solid var(--accent)",
+        background: "var(--bg-warm)",
+        padding: "var(--space-7) var(--space-7)",
       }}
     >
-      <p
+      <div
         style={{
-          fontFamily: "var(--serif)",
-          fontStyle: "italic",
-          fontSize: "16px",
-          color: "var(--text-dim)",
-          margin: 0,
+          maxWidth: "var(--container)",
+          margin: "0 auto",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
         }}
       >
-        John Huang
-      </p>
+        {/* Brand */}
+        <span
+          style={{
+            fontFamily: "var(--serif)",
+            fontStyle: "italic",
+            fontSize: "var(--text-base)",
+            color: "var(--text)",
+          }}
+        >
+          John Huang
+        </span>
 
-      <div style={{ display: "flex", gap: "1.5rem" }}>
-        {links.map((l) => (
+        {/* Built with */}
+        <span
+          style={{
+            fontFamily: "var(--mono)",
+            fontSize: "11px",
+            color: "var(--text-dim)",
+            letterSpacing: "0.3px",
+          }}
+        >
+          &copy; 2026 John Huang
+        </span>
+
+        {/* Links */}
+        <div style={{ display: "flex", gap: "var(--space-5)" }}>
           <a
-            key={l.label}
-            href={l.href}
-            target={l.href.startsWith("http") ? "_blank" : undefined}
-            rel={l.href.startsWith("http") ? "noopener noreferrer" : undefined}
-            style={{
-              fontFamily: "var(--sans)",
-              fontSize: "12px",
-              fontWeight: 600,
-              letterSpacing: "0.3px",
-              color: "var(--text-dim)",
-              textDecoration: "none",
-              transition: "color 0.2s",
-            }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.color = "var(--sage)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.color = "var(--text-dim)")
-            }
+            href="https://www.linkedin.com/in/john-huang-95909a156/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="footer-link"
           >
-            {l.label}
+            LinkedIn
           </a>
-        ))}
+          <a href="mailto:johnhuang@example.com" className="footer-link">
+            Email
+          </a>
+        </div>
       </div>
     </footer>
   );
