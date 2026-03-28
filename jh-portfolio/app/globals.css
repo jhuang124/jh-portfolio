@@ -1,0 +1,127 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
+
+:root {
+  /* Neutral editorial palette — terracotta accent */
+  --bg: #F7F6F3;
+  --surface: #FFFFFF;
+  --text: #1B1B1B;
+  --text-mid: #5F5E5A;
+  --text-dim: #767676; /* WCAG AA: 4.5:1 on --bg */
+  --accent: #C27B5B; /* Muted terracotta */
+  --accent-hover: #A8654A;
+  --border: #E8E6E2;
+  --border-subtle: rgba(0,0,0,0.06);
+
+  /* Font stacks */
+  --serif: 'EB Garamond', Georgia, 'Times New Roman', serif;
+  --stat: 'Bebas Neue', sans-serif;
+  --mono: 'Courier New', monospace;
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: var(--serif);
+  -webkit-font-smoothing: antialiased;
+  position: relative;
+}
+
+/* Paper grain texture overlay */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 100;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 200px 200px;
+}
+
+::selection {
+  background: rgba(194,123,91,0.18);
+  color: var(--text);
+}
+
+/* Interactive elements */
+a, button, [role="button"] {
+  cursor: pointer;
+}
+
+/* Focus states — accessibility */
+a:focus-visible, button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Dramatic scroll reveals — larger travel distance, slower easing */
+.reveal {
+  opacity: 0;
+  transform: translateY(48px);
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Slide-in from left variant */
+.reveal-left {
+  opacity: 0;
+  transform: translateX(-40px);
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.reveal-left.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Slide-in from right variant */
+.reveal-right {
+  opacity: 0;
+  transform: translateX(40px);
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.reveal-right.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Staggered children — more dramatic delays */
+.reveal-stagger > * {
+  opacity: 0;
+  transform: translateY(32px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.reveal-stagger.visible > *:nth-child(1) { opacity: 1; transform: none; transition-delay: 0.08s; }
+.reveal-stagger.visible > *:nth-child(2) { opacity: 1; transform: none; transition-delay: 0.2s; }
+.reveal-stagger.visible > *:nth-child(3) { opacity: 1; transform: none; transition-delay: 0.32s; }
+.reveal-stagger.visible > *:nth-child(4) { opacity: 1; transform: none; transition-delay: 0.44s; }
+
+/* Reduced motion — accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .reveal, .reveal-left, .reveal-right, .reveal-stagger > * {
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+}
