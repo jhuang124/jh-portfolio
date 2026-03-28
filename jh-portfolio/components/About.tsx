@@ -38,7 +38,7 @@ export default function About() {
               }}
             >
               <Image
-                src="/images/headshot.png"
+                src="/jh-portfolio/images/headshot.png"
                 alt="John Huang"
                 width={400}
                 height={500}
