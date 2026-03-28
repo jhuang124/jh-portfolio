@@ -3,16 +3,21 @@
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
 
 :root {
-  /* Neutral editorial palette — terracotta accent */
-  --bg: #F7F6F3;
-  --surface: #FFFFFF;
+  /* Warm parchment palette — terracotta + sage */
+  --bg: #F5F1EB;
+  --bg-warm: #F2EDE4;
+  --bg-contact: #EDE7DC;
+  --surface: #FDFBF7;
   --text: #1B1B1B;
   --text-mid: #5F5E5A;
-  --text-dim: #767676; /* WCAG AA: 4.5:1 on --bg */
-  --accent: #C27B5B; /* Muted terracotta */
+  --text-dim: #767676;
+  --accent: #C27B5B;
   --accent-hover: #A8654A;
-  --border: #E8E6E2;
-  --border-subtle: rgba(0,0,0,0.06);
+  --sage: #7A8B6F;
+  --sage-light: rgba(122,139,111,0.12);
+  --border: #E2DED6;
+  --border-soft: rgba(0,0,0,0.05);
+  --border-subtle: rgba(0,0,0,0.04);
 
   /* Font stacks */
   --serif: 'EB Garamond', Georgia, 'Times New Roman', serif;
@@ -30,7 +35,14 @@ html {
 }
 
 body {
-  background-color: var(--bg);
+  background: linear-gradient(
+    180deg,
+    #F5F1EB 0%,
+    #F3EFE8 30%,
+    #F0ECE5 60%,
+    #EDEAE4 100%
+  );
+  background-attachment: fixed;
   color: var(--text);
   font-family: var(--serif);
   -webkit-font-smoothing: antialiased;
@@ -47,7 +59,7 @@ body::after {
   height: 100%;
   pointer-events: none;
   z-index: 100;
-  opacity: 0.025;
+  opacity: 0.02;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
   background-repeat: repeat;
   background-size: 200px 200px;
@@ -69,7 +81,28 @@ a:focus-visible, button:focus-visible {
   outline-offset: 2px;
 }
 
-/* Dramatic scroll reveals — larger travel distance, slower easing */
+/* Section transition bands */
+.section-transition {
+  position: relative;
+}
+
+.section-transition::before {
+  content: '';
+  position: absolute;
+  top: -60px;
+  left: 0;
+  right: 0;
+  height: 120px;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(0,0,0,0.008) 50%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+/* Dramatic scroll reveals */
 .reveal {
   opacity: 0;
   transform: translateY(48px);
@@ -81,7 +114,7 @@ a:focus-visible, button:focus-visible {
   transform: translateY(0);
 }
 
-/* Slide-in from left variant */
+/* Slide-in from left */
 .reveal-left {
   opacity: 0;
   transform: translateX(-40px);
@@ -93,7 +126,7 @@ a:focus-visible, button:focus-visible {
   transform: translateX(0);
 }
 
-/* Slide-in from right variant */
+/* Slide-in from right */
 .reveal-right {
   opacity: 0;
   transform: translateX(40px);
@@ -105,7 +138,7 @@ a:focus-visible, button:focus-visible {
   transform: translateX(0);
 }
 
-/* Staggered children — more dramatic delays */
+/* Staggered children */
 .reveal-stagger > * {
   opacity: 0;
   transform: translateY(32px);
@@ -123,5 +156,12 @@ a:focus-visible, button:focus-visible {
     transition: none;
     opacity: 1;
     transform: none;
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  body {
+    background-attachment: scroll;
   }
 }

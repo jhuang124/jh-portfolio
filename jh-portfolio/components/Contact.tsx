@@ -7,46 +7,38 @@ export default function Contact() {
     <section
       id="contact"
       style={{
-        padding: "140px clamp(3rem, 8vw, 10rem)",
-        borderTop: "1px solid var(--border-subtle)",
+        backgroundColor: "var(--bg-contact)",
+        padding: "140px 3rem",
         textAlign: "center",
-        width: "100%",
+        position: "relative",
       }}
     >
-      <ScrollReveal>
-        <div
-          style={{
-            width: "40px",
-            height: "3px",
-            backgroundColor: "var(--accent)",
-            margin: "0 auto 12px",
-          }}
-        />
-        <p
-          style={{
-            fontFamily: "var(--mono)",
-            fontSize: "12px",
-            fontWeight: 400,
-            letterSpacing: "0.8px",
-            color: "var(--text-dim)",
-            marginBottom: "2.5rem",
-            textTransform: "uppercase" as const,
-          }}
-        >
-          Contact
-        </p>
+      {/* Top gradient transition — smooth entry into warmer space */}
+      <div
+        style={{
+          position: "absolute",
+          top: "-80px",
+          left: 0,
+          right: 0,
+          height: "160px",
+          background: "linear-gradient(180deg, transparent 0%, var(--bg-contact) 100%)",
+          pointerEvents: "none",
+        }}
+      />
 
+      <ScrollReveal>
         <h2
           style={{
             fontFamily: "var(--serif)",
+            fontStyle: "italic",
             fontSize: "clamp(30px, 5vw, 48px)",
             fontWeight: 400,
             color: "var(--text)",
-            margin: "0 0 1.25rem 0",
+            margin: "0 0 1.5rem 0",
             letterSpacing: "-0.3px",
           }}
         >
-          Let&apos;s build something worth paying for.
+          Let&apos;s build something worth paying for
         </h2>
 
         <p
@@ -54,14 +46,12 @@ export default function Contact() {
             fontFamily: "var(--serif)",
             fontSize: "17px",
             color: "var(--text-mid)",
-            maxWidth: "520px",
+            maxWidth: "480px",
             margin: "0 auto 3rem",
             lineHeight: 1.7,
           }}
         >
-          I&apos;m exploring my next role in subscription products, media, or
-          SaaS. If you&apos;re working on something interesting, I&apos;d like
-          to hear about it.
+          I&apos;m looking for my next PM role. Let&apos;s talk.
         </p>
 
         {/* Primary CTAs */}
@@ -71,7 +61,7 @@ export default function Contact() {
             gap: "1.25rem",
             justifyContent: "center",
             flexWrap: "wrap",
-            marginBottom: "2rem",
+            marginBottom: "2.5rem",
           }}
         >
           <a
@@ -109,6 +99,7 @@ export default function Contact() {
               letterSpacing: "0.8px",
               color: "var(--text)",
               border: "1px solid var(--border)",
+              backgroundColor: "transparent",
               padding: "16px 32px",
               borderRadius: "4px",
               textDecoration: "none",
@@ -131,14 +122,16 @@ export default function Contact() {
           href="/resume.pdf"
           download
           style={{
-            fontFamily: "var(--mono)",
+            fontFamily: "var(--sans)",
             fontSize: "12px",
+            fontWeight: 600,
             letterSpacing: "0.5px",
             color: "var(--text-dim)",
             textDecoration: "none",
             borderBottom: "1px solid var(--border)",
-            paddingBottom: "2px",
+            paddingBottom: "3px",
             transition: "color 0.2s, border-color 0.2s",
+            textTransform: "uppercase" as const,
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.color = "var(--accent)";
@@ -149,7 +142,7 @@ export default function Contact() {
             e.currentTarget.style.borderColor = "var(--border)";
           }}
         >
-          Download resume (PDF)
+          Download Resume (PDF) &darr;
         </a>
       </ScrollReveal>
     </section>

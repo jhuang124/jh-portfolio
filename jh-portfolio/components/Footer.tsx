@@ -53,7 +53,7 @@ export default function Footer() {
               transition: "color 0.2s",
             }}
             onMouseEnter={(e) =>
-              (e.currentTarget.style.color = "var(--accent)")
+              (e.currentTarget.style.color = "var(--sage)")
             }
             onMouseLeave={(e) =>
               (e.currentTarget.style.color = "var(--text-dim)")
