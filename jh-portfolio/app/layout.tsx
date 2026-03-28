@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "John Huang — Product Manager",
-  description: "Product manager with a track record of building user-centric products at scale.",
+  description: "John Huang, PM with a track record in monetization, lifecycle, and billing infrastructure at The Atlantic.",
 };
 
 export default function RootLayout({

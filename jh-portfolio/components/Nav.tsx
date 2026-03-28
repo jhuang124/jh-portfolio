@@ -40,7 +40,7 @@ export default function Nav() {
         borderBottom: scrolled
           ? "1px solid var(--border)"
           : "1px solid transparent",
-        backgroundColor: scrolled ? "rgba(247,246,243,0.97)" : "transparent",
+        backgroundColor: scrolled ? "rgba(245,241,235,0.97)" : "transparent",
         backdropFilter: scrolled ? "blur(8px)" : "none",
         transition: "all 0.3s ease",
         padding: "0 3rem",
