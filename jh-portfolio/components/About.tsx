@@ -11,7 +11,7 @@ export default function About() {
     >
       <ScrollReveal>
         <Image
-          src="/jh-portfolio/images/headshot.png"
+          src="/images/headshot.png"
           alt="John Huang"
           width={120}
           height={120}

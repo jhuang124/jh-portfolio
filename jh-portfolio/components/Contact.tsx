@@ -51,7 +51,7 @@ export default function Contact() {
             LinkedIn
           </a>
           <a
-            href="/jh-portfolio/resume.pdf"
+            href="/resume.pdf"
             target="_blank"
             rel="noopener noreferrer"
             style={{

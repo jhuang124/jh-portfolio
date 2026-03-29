@@ -91,7 +91,7 @@ export default function Sidebar() {
           LinkedIn
         </a>
         <a
-          href="/jh-portfolio/resume.pdf"
+          href="/resume.pdf"
           target="_blank"
           rel="noopener noreferrer"
           className="sidebar-link"
