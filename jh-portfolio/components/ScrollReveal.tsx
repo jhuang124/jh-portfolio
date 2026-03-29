@@ -31,10 +31,8 @@ export default function ScrollReveal({
     return () => observer.disconnect();
   }, []);
 
-  let animClass = "reveal";
-  if (stagger) animClass = "reveal-stagger";
-  else if (direction === "left") animClass = "reveal-left";
-  else if (direction === "right") animClass = "reveal-right";
+  // All variants now map to fade-up (directional removed)
+  const animClass = stagger ? "reveal-stagger" : "reveal";
 
   return (
     <div ref={ref} className={`${animClass} ${className}`}>
