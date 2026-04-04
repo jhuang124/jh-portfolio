@@ -62,11 +62,12 @@ html`&lt;${SequenceDiagramStepper} participants=${participants} messages=${messa
       const svgRef = useRef(null);
 
       const colWidth = 180;
-      const rowHeight = 80;
-      const headerHeight = 70;
-      const topPad = 30;
+      const rowHeight = 56;
+      const headerHeight = 60;
+      const topPad = 16;
       const totalWidth = participants.length * colWidth;
-      const totalHeight = headerHeight + topPad + (messages.length) * rowHeight + 60;
+      const visibleRows = Math.max(step + 1, 1);
+      const totalHeight = headerHeight + topPad + visibleRows * rowHeight + 40;
 
       const getX = useCallback((id) => {
         const idx = participants.findIndex(p => p.id === id);

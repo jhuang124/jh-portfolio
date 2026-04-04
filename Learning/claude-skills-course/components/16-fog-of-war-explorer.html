@@ -87,30 +87,30 @@ html\`&lt;\${FogOfWarExplorer} regions=\${regions} connections=\${connections} /
       const rx = region.x - w/2, ry = region.y - h/2;
 
       if (revealed) {
-        return html\`
-          <g class="reveal-in" style="transform-origin: \${region.x}px \${region.y}px">
-            <rect x=\${rx} y=\${ry} width=\${w} height=\${h} rx="12"
-              fill="#0d1320" stroke=\${region.color} stroke-width="1.5" />
-            <text x=\${region.x} y=\${region.y + 1} text-anchor="middle"
-              dominant-baseline="middle" fill=\${region.color}
+        return html`
+          <g class="reveal-in" style="transform-origin: ${region.x}px ${region.y}px">
+            <rect x=${rx} y=${ry} width=${w} height=${h} rx="12"
+              fill="#0d1320" stroke=${region.color} stroke-width="1.5" />
+            <text x=${region.x} y=${region.y + 1} text-anchor="middle"
+              dominant-baseline="middle" fill=${region.color}
               font-family="DM Mono" font-size="12" font-weight="500">
-              \${region.label}
+              ${region.label}
             </text>
           </g>
-        \`;
+        `;
       }
 
-      return html\`
-        <g onClick=\${onClick} style="cursor: pointer" class="fog-pulse">
-          <rect x=\${rx} y=\${ry} width=\${w} height=\${h} rx="12"
+      return html`
+        <g onClick=${onClick} style="cursor: pointer" class="fog-pulse">
+          <rect x=${rx} y=${ry} width=${w} height=${h} rx="12"
             fill="#1e293b" stroke="#334155" stroke-width="1" opacity="0.5" />
-          <rect x=\${rx} y=\${ry} width=\${w} height=\${h} rx="12"
+          <rect x=${rx} y=${ry} width=${w} height=${h} rx="12"
             fill="url(#fogGradient)" opacity="0.7" />
-          <text x=\${region.x} y=\${region.y + 1} text-anchor="middle"
+          <text x=${region.x} y=${region.y + 1} text-anchor="middle"
             dominant-baseline="middle" fill="#475569"
             font-family="DM Mono" font-size="11">?</text>
         </g>
-      \`;
+      `;
     }
 
     // --- Connection line ---
@@ -127,36 +127,36 @@ html\`&lt;\${FogOfWarExplorer} regions=\${regions} connections=\${connections} /
       const cx = mx - dy * 0.15;
       const cy = my + dx * 0.15;
 
-      return html\`
+      return html`
         <g>
-          <path d="M \${from.x} \${from.y} Q \${cx} \${cy} \${to.x} \${to.y}"
+          <path d="M ${from.x} ${from.y} Q ${cx} ${cy} ${to.x} ${to.y}"
             fill="none" stroke="#334155" stroke-width="1.5"
-            class=\${isNew ? 'connection-draw' : ''} opacity="0.6" />
+            class=${isNew ? 'connection-draw' : ''} opacity="0.6" />
           <text font-family="DM Mono" font-size="9" fill="#64748b">
-            <textPath href="#conn-\${conn.from}-\${conn.to}" startOffset="50%" text-anchor="middle">
-              \${conn.label}
+            <textPath href="#conn-${conn.from}-${conn.to}" startOffset="50%" text-anchor="middle">
+              ${conn.label}
             </textPath>
           </text>
           <defs>
-            <path id="conn-\${conn.from}-\${conn.to}"
-              d="M \${from.x} \${from.y} Q \${cx} \${cy} \${to.x} \${to.y}" />
+            <path id="conn-${conn.from}-${conn.to}"
+              d="M ${from.x} ${from.y} Q ${cx} ${cy} ${to.x} ${to.y}" />
           </defs>
         </g>
-      \`;
+      `;
     }
 
     // --- DetailPanel ---
     function DetailPanel({ region }) {
       if (!region) return null;
-      return html\`
+      return html`
         <div class="bg-[#0d1320] border border-slate-800/60 rounded-xl p-5 mt-4 reveal-in">
           <div class="flex items-center gap-3 mb-2">
-            <div class="w-2.5 h-2.5 rounded-full" style="background: \${region.color}"></div>
-            <span class="font-mono text-sm" style="color: \${region.color}">\${region.label}</span>
+            <div class="w-2.5 h-2.5 rounded-full" style="background: ${region.color}"></div>
+            <span class="font-mono text-sm" style="color: ${region.color}">${region.label}</span>
           </div>
-          <p class="text-slate-400 text-sm leading-relaxed">\${region.description}</p>
+          <p class="text-slate-400 text-sm leading-relaxed">${region.description}</p>
         </div>
-      \`;
+      `;
     }
 
     // --- Main Component ---
@@ -205,7 +205,7 @@ html\`&lt;\${FogOfWarExplorer} regions=\${regions} connections=\${connections} /
         setRevealOrder([]);
       }, []);
 
-      return html\`
+      return html`
         <div class="max-w-5xl mx-auto px-8 pb-12">
           <!-- Controls -->
           <div class="flex items-center justify-between mb-6">
@@ -213,23 +213,23 @@ html\`&lt;\${FogOfWarExplorer} regions=\${regions} connections=\${connections} /
               <div class="bg-[#0d1320] border border-slate-800/60 rounded-lg px-4 py-2 flex items-center gap-3">
                 <div class="w-32 h-1.5 bg-slate-800 rounded-full overflow-hidden">
                   <div class="h-full bg-[#94a3b8] rounded-full transition-all duration-500"
-                    style="width: \${progress}%"></div>
+                    style="width: ${progress}%"></div>
                 </div>
-                <span class="font-mono text-xs text-slate-500">\${revealed.size}/\${regionData.length}</span>
+                <span class="font-mono text-xs text-slate-500">${revealed.size}/${regionData.length}</span>
               </div>
               <span class="font-mono text-xs text-slate-600">
-                \${revealed.size === 0 ? 'Click a region to begin exploring' :
+                ${revealed.size === 0 ? 'Click a region to begin exploring' :
                   revealed.size === regionData.length ? 'Full map revealed!' :
                   'Keep exploring...'}
               </span>
             </div>
             <div class="flex gap-2">
-              <button onClick=\${revealAll}
-                class="font-mono text-xs px-4 py-2 rounded-lg border border-slate-800/60 text-slate-400 hover:text-white hover:border-slate-600 transition-all \${revealed.size === regionData.length ? 'opacity-30 pointer-events-none' : ''}">
+              <button onClick=${revealAll}
+                class="font-mono text-xs px-4 py-2 rounded-lg border border-slate-800/60 text-slate-400 hover:text-white hover:border-slate-600 transition-all ${revealed.size === regionData.length ? 'opacity-30 pointer-events-none' : ''}">
                 Reveal All
               </button>
-              <button onClick=\${reset}
-                class="font-mono text-xs px-4 py-2 rounded-lg border border-slate-800/60 text-slate-400 hover:text-white hover:border-slate-600 transition-all \${revealed.size === 0 ? 'opacity-30 pointer-events-none' : ''}">
+              <button onClick=${reset}
+                class="font-mono text-xs px-4 py-2 rounded-lg border border-slate-800/60 text-slate-400 hover:text-white hover:border-slate-600 transition-all ${revealed.size === 0 ? 'opacity-30 pointer-events-none' : ''}">
                 Reset
               </button>
             </div>
@@ -253,61 +253,61 @@ html\`&lt;\${FogOfWarExplorer} regions=\${regions} connections=\${connections} /
               </defs>
 
               <!-- Grid pattern -->
-              \${Array.from({ length: 18 }, (_, i) => html\`
-                <line x1=\${i * 50} y1="0" x2=\${i * 50} y2="580" stroke="#1e293b" stroke-width="0.5" opacity="0.3" />
-              \`)}
-              \${Array.from({ length: 12 }, (_, i) => html\`
-                <line x1="0" y1=\${i * 50} x2="880" y2=\${i * 50} stroke="#1e293b" stroke-width="0.5" opacity="0.3" />
-              \`)}
+              ${Array.from({ length: 18 }, (_, i) => html`
+                <line x1=${i * 50} y1="0" x2=${i * 50} y2="580" stroke="#1e293b" stroke-width="0.5" opacity="0.3" />
+              `)}
+              ${Array.from({ length: 12 }, (_, i) => html`
+                <line x1="0" y1=${i * 50} x2="880" y2=${i * 50} stroke="#1e293b" stroke-width="0.5" opacity="0.3" />
+              `)}
 
               <!-- Connections -->
-              \${connData.map(c => html\`
-                <\${ConnectionLine}
-                  conn=\${c}
-                  regions=\${regionData}
-                  revealedSet=\${revealed}
-                  isNew=\${newConnections.has(c.from + '-' + c.to)} />
-              \`)}
+              ${connData.map(c => html`
+                <${ConnectionLine}
+                  conn=${c}
+                  regions=${regionData}
+                  revealedSet=${revealed}
+                  isNew=${newConnections.has(c.from + '-' + c.to)} />
+              `)}
 
               <!-- Regions -->
-              \${regionData.map(r => html\`
-                <\${FogRegion}
-                  region=\${r}
-                  revealed=\${revealed.has(r.id)}
-                  onClick=\${() => !revealed.has(r.id) && revealRegion(r.id)} />
-              \`)}
+              ${regionData.map(r => html`
+                <${FogRegion}
+                  region=${r}
+                  revealed=${revealed.has(r.id)}
+                  onClick=${() => !revealed.has(r.id) && revealRegion(r.id)} />
+              `)}
             </svg>
           </div>
 
           <!-- Detail panel -->
-          <\${DetailPanel} region=\${selectedRegion} />
+          <${DetailPanel} region=${selectedRegion} />
 
           <!-- Reveal order -->
-          \${revealOrder.length > 0 && html\`
+          ${revealOrder.length > 0 && html`
             <div class="mt-4 flex flex-wrap gap-2 items-center">
               <span class="font-mono text-xs text-slate-600 mr-2">Explored:</span>
-              \${revealOrder.map((id, i) => {
+              ${revealOrder.map((id, i) => {
                 const r = regionData.find(reg => reg.id === id);
-                return html\`
-                  <button onClick=\${() => setSelectedRegion(r)}
+                return html`
+                  <button onClick=${() => setSelectedRegion(r)}
                     class="font-mono text-xs px-2.5 py-1 rounded-md border transition-all hover:border-slate-600"
-                    style="color: \${r.color}; border-color: \${r.color}33; background: \${r.color}0a">
-                    \${i + 1}. \${r.label}
+                    style="color: ${r.color}; border-color: ${r.color}33; background: ${r.color}0a">
+                    ${i + 1}. ${r.label}
                   </button>
-                \`;
+                `;
               })}
             </div>
-          \`}
+          `}
         </div>
-      \`;
+      `;
     }
 
     // --- Render ---
     function App() {
-      return html\`<\${FogOfWarExplorer} regions=\${regions} connections=\${connections} />\`;
+      return html`<${FogOfWarExplorer} regions=${regions} connections=${connections} />`;
     }
 
-    render(html\`<\${App} />\`, document.getElementById('app'));
+    render(html`<${App} />`, document.getElementById('app'));
   </script>
 </body>
 </html>

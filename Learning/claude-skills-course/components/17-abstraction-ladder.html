@@ -149,53 +149,53 @@ html\`&lt;\${AbstractionLadder} ladders=\${ladders} />\`</code></pre>
       const colors = levelColors[level.level];
       const icons = { concrete: '\u25CB', principle: '\u25C7', meta: '\u25B3' };
 
-      return html\`
-        <div class="ladder-rung cursor-pointer" onClick=\${onClick}>
+      return html`
+        <div class="ladder-rung cursor-pointer" onClick=${onClick}>
           <div class="bg-[#0d1320] border rounded-xl p-5 transition-all duration-300"
-            style="border-color: \${expanded ? colors.accent + '80' : '#1e293b'}; \${expanded ? 'box-shadow: 0 0 20px ' + colors.accent + '15' : ''}">
+            style="border-color: ${expanded ? colors.accent + '80' : '#1e293b'}; ${expanded ? 'box-shadow: 0 0 20px ' + colors.accent + '15' : ''}">
 
             <!-- Header -->
             <div class="flex items-center gap-3 mb-1">
-              <span class="text-lg" style="color: \${colors.accent}">\${icons[level.level]}</span>
-              <span class="font-mono text-xs tracking-wider uppercase" style="color: \${colors.accent}">\${colors.label}</span>
+              <span class="text-lg" style="color: ${colors.accent}">${icons[level.level]}</span>
+              <span class="font-mono text-xs tracking-wider uppercase" style="color: ${colors.accent}">${colors.label}</span>
             </div>
 
             <!-- Content -->
-            <p class="text-white text-sm font-medium leading-relaxed mt-2">\${level.content}</p>
+            <p class="text-white text-sm font-medium leading-relaxed mt-2">${level.content}</p>
 
             <!-- Expanded detail -->
-            \${expanded && html\`
-              <div class="fade-slide-up mt-4 pt-4 border-t" style="border-color: \${colors.accent}20">
-                <p class="text-slate-400 text-sm leading-relaxed">\${level.detail}</p>
-                \${level.code && html\`
-                  <pre class="mt-3 bg-[#0a0e1a] border border-slate-800/40 rounded-lg p-4 font-mono text-xs text-slate-400 overflow-x-auto whitespace-pre-wrap">\${level.code}</pre>
-                \`}
+            ${expanded && html`
+              <div class="fade-slide-up mt-4 pt-4 border-t" style="border-color: ${colors.accent}20">
+                <p class="text-slate-400 text-sm leading-relaxed">${level.detail}</p>
+                ${level.code && html`
+                  <pre class="mt-3 bg-[#0a0e1a] border border-slate-800/40 rounded-lg p-4 font-mono text-xs text-slate-400 overflow-x-auto whitespace-pre-wrap">${level.code}</pre>
+                `}
               </div>
-            \`}
+            `}
           </div>
         </div>
-      \`;
+      `;
     }
 
     // --- Arrow between levels ---
     function LadderArrow({ text, direction, expanded }) {
-      return html\`
+      return html`
         <div class="flex items-center gap-3 py-2 pl-6">
           <div class="flex flex-col items-center">
             <svg width="20" height="32" viewBox="0 0 20 32">
               <line x1="10" y1="0" x2="10" y2="24" stroke="#c084fc" stroke-width="1.5" opacity="0.4" />
-              \${direction === 'up' ? html\`
+              ${direction === 'up' ? html`
                 <polygon points="4,8 10,0 16,8" fill="#c084fc" opacity="0.4" />
-              \` : html\`
+              ` : html`
                 <polygon points="4,20 10,28 16,20" fill="#c084fc" opacity="0.4" />
-              \`}
+              `}
             </svg>
           </div>
-          \${expanded && html\`
-            <span class="font-mono text-xs text-slate-600 fade-slide-up italic leading-snug max-w-md">\${text}</span>
-          \`}
+          ${expanded && html`
+            <span class="font-mono text-xs text-slate-600 fade-slide-up italic leading-snug max-w-md">${text}</span>
+          `}
         </div>
-      \`;
+      `;
     }
 
     // --- Main Component ---
@@ -223,94 +223,94 @@ html\`&lt;\${AbstractionLadder} ladders=\${ladders} />\`</code></pre>
         }
       }, [expandedLevel]);
 
-      return html\`
+      return html`
         <div class="max-w-5xl mx-auto px-8 pb-12">
           <!-- Ladder selector -->
           <div class="flex gap-2 mb-8">
-            \${ladderData.map((l, i) => html\`
+            ${ladderData.map((l, i) => html`
               <button
-                onClick=\${() => changeLadder(i)}
-                class="font-mono text-xs px-4 py-2 rounded-lg border transition-all \${i === activeLadder
+                onClick=${() => changeLadder(i)}
+                class="font-mono text-xs px-4 py-2 rounded-lg border transition-all ${i === activeLadder
                   ? 'border-[#c084fc]/50 text-[#c084fc] bg-[#c084fc]/5'
                   : 'border-slate-800/60 text-slate-500 hover:text-slate-300 hover:border-slate-700'}">
-                Ladder \${String.fromCharCode(65 + i)}: \${l.title}
+                Ladder ${String.fromCharCode(65 + i)}: ${l.title}
               </button>
-            \`)}
+            `)}
           </div>
 
           <!-- Navigation hint -->
           <div class="flex items-center gap-4 mb-6">
-            <button onClick=\${() => navigateLevel('down')}
+            <button onClick=${() => navigateLevel('down')}
               class="font-mono text-xs px-3 py-1.5 rounded-lg border border-slate-800/60 text-slate-500 hover:text-[#c084fc] hover:border-[#c084fc]/30 transition-all">
               \u2193 More Concrete
             </button>
-            <button onClick=\${() => navigateLevel('up')}
+            <button onClick=${() => navigateLevel('up')}
               class="font-mono text-xs px-3 py-1.5 rounded-lg border border-slate-800/60 text-slate-500 hover:text-[#c084fc] hover:border-[#c084fc]/30 transition-all">
               \u2191 More Abstract
             </button>
             <span class="font-mono text-xs text-slate-600">
-              \${expandedLevel === null ? 'Click a level to expand' : 'Navigate up/down the abstraction ladder'}
+              ${expandedLevel === null ? 'Click a level to expand' : 'Navigate up/down the abstraction ladder'}
             </span>
           </div>
 
           <!-- The Ladder -->
           <div class="space-y-0">
             <!-- Meta (top) -->
-            <\${LadderLevel}
-              level=\${ladder.levels[2]}
-              expanded=\${expandedLevel === 2}
-              onClick=\${() => toggleLevel(2)}
-              index=\${2} />
+            <${LadderLevel}
+              level=${ladder.levels[2]}
+              expanded=${expandedLevel === 2}
+              onClick=${() => toggleLevel(2)}
+              index=${2} />
 
             <!-- Arrow: principle -> meta -->
-            <\${LadderArrow}
-              text=\${ladder.arrows[1]}
+            <${LadderArrow}
+              text=${ladder.arrows[1]}
               direction="up"
-              expanded=\${expandedLevel === 1 || expandedLevel === 2} />
+              expanded=${expandedLevel === 1 || expandedLevel === 2} />
 
             <!-- Principle (middle) -->
-            <\${LadderLevel}
-              level=\${ladder.levels[1]}
-              expanded=\${expandedLevel === 1}
-              onClick=\${() => toggleLevel(1)}
-              index=\${1} />
+            <${LadderLevel}
+              level=${ladder.levels[1]}
+              expanded=${expandedLevel === 1}
+              onClick=${() => toggleLevel(1)}
+              index=${1} />
 
             <!-- Arrow: concrete -> principle -->
-            <\${LadderArrow}
-              text=\${ladder.arrows[0]}
+            <${LadderArrow}
+              text=${ladder.arrows[0]}
               direction="up"
-              expanded=\${expandedLevel === 0 || expandedLevel === 1} />
+              expanded=${expandedLevel === 0 || expandedLevel === 1} />
 
             <!-- Concrete (bottom) -->
-            <\${LadderLevel}
-              level=\${ladder.levels[0]}
-              expanded=\${expandedLevel === 0}
-              onClick=\${() => toggleLevel(0)}
-              index=\${0} />
+            <${LadderLevel}
+              level=${ladder.levels[0]}
+              expanded=${expandedLevel === 0}
+              onClick=${() => toggleLevel(0)}
+              index=${0} />
           </div>
 
           <!-- Scale indicator -->
           <div class="mt-8 flex items-center gap-4">
             <div class="flex items-center gap-2">
-              \${Object.entries(levelColors).map(([key, val]) => html\`
+              ${Object.entries(levelColors).map(([key, val]) => html`
                 <div class="flex items-center gap-1.5">
-                  <div class="w-2 h-2 rounded-full" style="background: \${val.accent}"></div>
-                  <span class="font-mono text-xs" style="color: \${val.accent}">\${val.label}</span>
+                  <div class="w-2 h-2 rounded-full" style="background: ${val.accent}"></div>
+                  <span class="font-mono text-xs" style="color: ${val.accent}">${val.label}</span>
                 </div>
-              \`)}
+              `)}
             </div>
             <span class="font-mono text-xs text-slate-700 ml-auto">\u2190 Specific \u00B7 General \u2192</span>
           </div>
         </div>
-      \`;
+      `;
     }
 
     // --- Render ---
     function App() {
-      return html\`<\${AbstractionLadder} ladders=\${ladders} />\`;
+      return html`<${AbstractionLadder} ladders=${ladders} />`;
     }
 
-    render(html\`<\${App} />\`, document.getElementById('app'));
+    render(html`<${App} />`, document.getElementById('app'));
   </script>
 </body>
 </html>

@@ -185,15 +185,15 @@ html\`&lt;\${ConceptMap} nodes=\${nodes} edges=\${edges} categories=\${categorie
         else if (dimmed) { opacity = 0.1; }
       }
 
-      return html\`
+      return html`
         <g>
-          <path d="M \${x1} \${y1} C \${cx1} \${cy1}, \${cx2} \${cy2}, \${x2} \${y2}"
-            fill="none" stroke=\${color} stroke-width=\${width}
-            class="edge-line" opacity=\${opacity} />
+          <path d="M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}"
+            fill="none" stroke=${color} stroke-width=${width}
+            class="edge-line" opacity=${opacity} />
           <!-- Arrowhead -->
-          <circle cx=\${x2 - 3} cy=\${y2} r="2.5" fill=\${color} opacity=\${opacity} />
+          <circle cx=${x2 - 3} cy=${y2} r="2.5" fill=${color} opacity=${opacity} />
         </g>
-      \`;
+      `;
     }
 
     // --- Node component ---
@@ -223,62 +223,62 @@ html\`&lt;\${ConceptMap} nodes=\${nodes} edges=\${edges} categories=\${categorie
         }
       }
 
-      return html\`
-        <g onClick=\${onClick} style="cursor: pointer; opacity: \${opacity}; transition: opacity 0.3s ease"
+      return html`
+        <g onClick=${onClick} style="cursor: pointer; opacity: ${opacity}; transition: opacity 0.3s ease"
           class="node-hover">
-          <rect x=\${node.x} y=\${node.y} width=\${nodeW} height=\${nodeH} rx="10"
-            fill=\${bgColor} stroke=\${borderColor} stroke-width=\${strokeWidth} />
-          <circle cx=\${node.x + 14} cy=\${node.y + nodeH/2} r="4"
-            fill=\${category.color} opacity="0.7" />
-          <text x=\${node.x + 26} y=\${node.y + nodeH/2 + 1} fill=\${textColor}
+          <rect x=${node.x} y=${node.y} width=${nodeW} height=${nodeH} rx="10"
+            fill=${bgColor} stroke=${borderColor} stroke-width=${strokeWidth} />
+          <circle cx=${node.x + 14} cy=${node.y + nodeH/2} r="4"
+            fill=${category.color} opacity="0.7" />
+          <text x=${node.x + 26} y=${node.y + nodeH/2 + 1} fill=${textColor}
             font-family="DM Sans" font-size="11" font-weight="500"
             dominant-baseline="middle">
-            \${node.label.length > 18 ? node.label.slice(0, 17) + '\u2026' : node.label}
+            ${node.label.length > 18 ? node.label.slice(0, 17) + '\u2026' : node.label}
           </text>
         </g>
-      \`;
+      `;
     }
 
     // --- Detail Panel ---
     function DetailPanel({ node, upstream, downstream, categoryDef }) {
       if (!node) return null;
-      return html\`
+      return html`
         <div class="fade-in bg-[#0d1320] border border-slate-800/60 rounded-xl p-5 mt-4">
           <div class="flex items-center gap-3 mb-3">
-            <div class="w-2.5 h-2.5 rounded-full" style="background: \${categoryDef.color}"></div>
-            <span class="font-bold text-white text-sm">\${node.label}</span>
+            <div class="w-2.5 h-2.5 rounded-full" style="background: ${categoryDef.color}"></div>
+            <span class="font-bold text-white text-sm">${node.label}</span>
             <span class="font-mono text-xs px-2 py-0.5 rounded-md ml-auto"
-              style="color: \${categoryDef.color}; background: \${categoryDef.color}15">
-              \${categoryDef.label}
+              style="color: ${categoryDef.color}; background: ${categoryDef.color}15">
+              ${categoryDef.label}
             </span>
           </div>
-          <p class="text-slate-400 text-sm leading-relaxed mb-4">\${node.description}</p>
+          <p class="text-slate-400 text-sm leading-relaxed mb-4">${node.description}</p>
           <div class="flex gap-6">
             <div>
-              <span class="font-mono text-xs text-[#fbbf24] block mb-1">\u2191 Prerequisites (\${upstream.size})</span>
+              <span class="font-mono text-xs text-[#fbbf24] block mb-1">\u2191 Prerequisites (${upstream.size})</span>
               <div class="flex flex-wrap gap-1">
-                \${upstream.size === 0 ? html\`<span class="text-xs text-slate-600">None \u2014 starting concept</span>\` :
+                ${upstream.size === 0 ? html`<span class="text-xs text-slate-600">None \u2014 starting concept</span>` :
                   [...upstream].map(id => {
                     const n = nodes.find(n => n.id === id);
-                    return html\`<span class="font-mono text-xs px-2 py-0.5 rounded bg-[#fbbf24]/10 text-[#fbbf24]">\${n?.label}</span>\`;
+                    return html`<span class="font-mono text-xs px-2 py-0.5 rounded bg-[#fbbf24]/10 text-[#fbbf24]">${n?.label}</span>`;
                   })
                 }
               </div>
             </div>
             <div>
-              <span class="font-mono text-xs text-[#6ee7b7] block mb-1">\u2193 Dependents (\${downstream.size})</span>
+              <span class="font-mono text-xs text-[#6ee7b7] block mb-1">\u2193 Dependents (${downstream.size})</span>
               <div class="flex flex-wrap gap-1">
-                \${downstream.size === 0 ? html\`<span class="text-xs text-slate-600">None \u2014 leaf concept</span>\` :
+                ${downstream.size === 0 ? html`<span class="text-xs text-slate-600">None \u2014 leaf concept</span>` :
                   [...downstream].map(id => {
                     const n = nodes.find(n => n.id === id);
-                    return html\`<span class="font-mono text-xs px-2 py-0.5 rounded bg-[#6ee7b7]/10 text-[#6ee7b7]">\${n?.label}</span>\`;
+                    return html`<span class="font-mono text-xs px-2 py-0.5 rounded bg-[#6ee7b7]/10 text-[#6ee7b7]">${n?.label}</span>`;
                   })
                 }
               </div>
             </div>
           </div>
         </div>
-      \`;
+      `;
     }
 
     // --- Main Component ---
@@ -305,16 +305,16 @@ html\`&lt;\${ConceptMap} nodes=\${nodes} edges=\${edges} categories=\${categorie
         }
       }, []);
 
-      return html\`
+      return html`
         <div class="max-w-5xl mx-auto px-8 pb-12">
           <!-- Legend -->
           <div class="flex items-center gap-6 mb-6 flex-wrap">
-            \${Object.entries(cats).map(([key, cat]) => html\`
+            ${Object.entries(cats).map(([key, cat]) => html`
               <div class="flex items-center gap-2">
-                <div class="w-3 h-3 rounded-full" style="background: \${cat.color}"></div>
-                <span class="font-mono text-xs" style="color: \${cat.color}">\${cat.label}</span>
+                <div class="w-3 h-3 rounded-full" style="background: ${cat.color}"></div>
+                <span class="font-mono text-xs" style="color: ${cat.color}">${cat.label}</span>
               </div>
-            \`)}
+            `)}
             <div class="flex items-center gap-4 ml-auto text-xs font-mono text-slate-600">
               <span class="flex items-center gap-1.5">
                 <span class="w-3 h-0.5 bg-[#fbbf24] inline-block rounded"></span> upstream
@@ -327,17 +327,17 @@ html\`&lt;\${ConceptMap} nodes=\${nodes} edges=\${edges} categories=\${categorie
 
           <!-- Graph -->
           <div class="bg-[#0d1320] border border-slate-800/60 rounded-2xl p-4 overflow-x-auto">
-            <svg viewBox="0 0 920 560" class="w-full" style="min-height: 420px" onClick=\${handleBgClick}>
+            <svg viewBox="0 0 920 560" class="w-full" style="min-height: 420px" onClick=${handleBgClick}>
               <!-- Background click target -->
               <rect width="920" height="560" fill="#0a0e1a" opacity="0.01" />
 
               <!-- Grid -->
-              \${Array.from({ length: 19 }, (_, i) => html\`
-                <line x1=\${i * 50} y1="0" x2=\${i * 50} y2="560" stroke="#1e293b" stroke-width="0.5" opacity="0.2" />
-              \`)}
-              \${Array.from({ length: 12 }, (_, i) => html\`
-                <line x1="0" y1=\${i * 50} x2="920" y2=\${i * 50} stroke="#1e293b" stroke-width="0.5" opacity="0.2" />
-              \`)}
+              ${Array.from({ length: 19 }, (_, i) => html`
+                <line x1=${i * 50} y1="0" x2=${i * 50} y2="560" stroke="#1e293b" stroke-width="0.5" opacity="0.2" />
+              `)}
+              ${Array.from({ length: 12 }, (_, i) => html`
+                <line x1="0" y1=${i * 50} x2="920" y2=${i * 50} stroke="#1e293b" stroke-width="0.5" opacity="0.2" />
+              `)}
 
               <!-- Column labels -->
               <text x="155" y="30" fill="#475569" font-family="DM Mono" font-size="10" text-anchor="middle">Foundation</text>
@@ -346,68 +346,68 @@ html\`&lt;\${ConceptMap} nodes=\${nodes} edges=\${edges} categories=\${categorie
               <text x="785" y="30" fill="#475569" font-family="DM Mono" font-size="10" text-anchor="middle">Synthesis</text>
 
               <!-- Edges first (under nodes) -->
-              \${edgeData.map(e => {
+              ${edgeData.map(e => {
                 const eUpstream = upstream.has(e.from) && (upstream.has(e.to) || e.to === selectedId);
                 const eDownstream = downstream.has(e.to) && (downstream.has(e.from) || e.from === selectedId);
                 const isDimmed = selectedId && !eUpstream && !eDownstream && e.from !== selectedId && e.to !== selectedId;
-                return html\`
-                  <\${Edge}
-                    edge=\${e}
-                    nodeMap=\${nodeMap}
-                    selected=\${!!selectedId}
-                    isUpstream=\${eUpstream}
-                    isDownstream=\${eDownstream}
-                    dimmed=\${isDimmed} />
-                \`;
+                return html`
+                  <${Edge}
+                    edge=${e}
+                    nodeMap=${nodeMap}
+                    selected=${!!selectedId}
+                    isUpstream=${eUpstream}
+                    isDownstream=${eDownstream}
+                    dimmed=${isDimmed} />
+                `;
               })}
 
               <!-- Nodes -->
-              \${nodeData.map(n => {
+              ${nodeData.map(n => {
                 const cat = cats[n.category];
                 const isSelf = n.id === selectedId;
                 const isUp = upstream.has(n.id);
                 const isDown = downstream.has(n.id);
                 const isDimmed = selectedId && !isSelf && !isUp && !isDown;
-                return html\`
-                  <\${Node}
-                    node=\${n}
-                    category=\${cat}
-                    selected=\${!!selectedId}
-                    isSelf=\${isSelf}
-                    isUpstream=\${isUp}
-                    isDownstream=\${isDown}
-                    dimmed=\${isDimmed}
-                    onClick=\${() => handleNodeClick(n.id)} />
-                \`;
+                return html`
+                  <${Node}
+                    node=${n}
+                    category=${cat}
+                    selected=${!!selectedId}
+                    isSelf=${isSelf}
+                    isUpstream=${isUp}
+                    isDownstream=${isDown}
+                    dimmed=${isDimmed}
+                    onClick=${() => handleNodeClick(n.id)} />
+                `;
               })}
             </svg>
           </div>
 
           <!-- Detail panel -->
-          \${selectedNode && html\`
-            <\${DetailPanel}
-              node=\${selectedNode}
-              upstream=\${upstream}
-              downstream=\${downstream}
-              categoryDef=\${cats[selectedNode.category]} />
-          \`}
+          ${selectedNode && html`
+            <${DetailPanel}
+              node=${selectedNode}
+              upstream=${upstream}
+              downstream=${downstream}
+              categoryDef=${cats[selectedNode.category]} />
+          `}
 
           <!-- Hint -->
-          \${!selectedId && html\`
+          ${!selectedId && html`
             <div class="mt-4 text-center">
               <span class="font-mono text-xs text-slate-600">Click any concept to explore its dependency chain</span>
             </div>
-          \`}
+          `}
         </div>
-      \`;
+      `;
     }
 
     // --- Render ---
     function App() {
-      return html\`<\${ConceptMap} nodes=\${nodes} edges=\${edges} categories=\${categories} />\`;
+      return html`<${ConceptMap} nodes=${nodes} edges=${edges} categories=${categories} />`;
     }
 
-    render(html\`<\${App} />\`, document.getElementById('app'));
+    render(html`<${App} />`, document.getElementById('app'));
   </script>
 </body>
 </html>

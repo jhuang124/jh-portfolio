@@ -81,34 +81,34 @@ html\`&lt;\${SynthesisCanvas} anchors=\${anchors} />\`</code></pre>
       const cx = mx - dy * 0.12;
       const cy = my + dx * 0.12;
 
-      return html\`
+      return html`
         <g>
-          <path d="M \${x1} \${y1} Q \${cx} \${cy} \${x2} \${y2}"
+          <path d="M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}"
             fill="none" stroke="#f0abfc" stroke-width="1.5" opacity="0.4" />
           <!-- Label background -->
-          \${conn.label && html\`
+          ${conn.label && html`
             <g>
-              <rect x=\${cx - conn.label.length * 3.2 - 6} y=\${cy - 10}
-                width=\${conn.label.length * 6.4 + 12} height="20" rx="6"
+              <rect x=${cx - conn.label.length * 3.2 - 6} y=${cy - 10}
+                width=${conn.label.length * 6.4 + 12} height="20" rx="6"
                 fill="#0d1320" stroke="#f0abfc" stroke-width="0.5" opacity="0.9" />
-              <text x=\${cx} y=\${cy + 1} text-anchor="middle" dominant-baseline="middle"
+              <text x=${cx} y=${cy + 1} text-anchor="middle" dominant-baseline="middle"
                 fill="#f0abfc" font-family="DM Mono" font-size="9" opacity="0.8">
-                \${conn.label}
+                ${conn.label}
               </text>
             </g>
-          \`}
+          `}
           <!-- Delete button -->
-          \${onDelete && html\`
-            <g onClick=\${(e) => { e.stopPropagation(); onDelete(conn); }} style="cursor: pointer">
-              <circle cx=\${cx + (conn.label ? conn.label.length * 3.2 + 12 : 0)} cy=\${cy}
+          ${onDelete && html`
+            <g onClick=${(e) => { e.stopPropagation(); onDelete(conn); }} style="cursor: pointer">
+              <circle cx=${cx + (conn.label ? conn.label.length * 3.2 + 12 : 0)} cy=${cy}
                 r="7" fill="#1e293b" stroke="#ef4444" stroke-width="1" opacity="0.8" />
-              <text x=\${cx + (conn.label ? conn.label.length * 3.2 + 12 : 0)} y=\${cy + 1}
+              <text x=${cx + (conn.label ? conn.label.length * 3.2 + 12 : 0)} y=${cy + 1}
                 text-anchor="middle" dominant-baseline="middle"
                 fill="#ef4444" font-family="DM Sans" font-size="9">\u00d7</text>
             </g>
-          \`}
+          `}
         </g>
-      \`;
+      `;
     }
 
     // --- Label Input Modal ---
@@ -125,20 +125,20 @@ html\`&lt;\${SynthesisCanvas} anchors=\${anchors} />\`</code></pre>
         onSubmit(text.trim() || '(unlabeled)');
       };
 
-      return html\`
-        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick=\${onCancel}>
+      return html`
+        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick=${onCancel}>
           <div class="bg-[#0d1320] border border-slate-800/60 rounded-xl p-6 max-w-md w-full mx-4 fade-in"
-            onClick=\${(e) => e.stopPropagation()}>
+            onClick=${(e) => e.stopPropagation()}>
             <div class="font-mono text-xs text-[#f0abfc] tracking-wider uppercase mb-4">Label This Connection</div>
             <div class="flex items-center gap-2 mb-4 text-sm">
-              <span class="text-white font-medium">\${from}</span>
+              <span class="text-white font-medium">${from}</span>
               <span class="text-slate-600">\u2192</span>
-              <span class="text-white font-medium">\${to}</span>
+              <span class="text-white font-medium">${to}</span>
             </div>
-            <form onSubmit=\${handleSubmit}>
-              <input ref=\${inputRef}
-                type="text" value=\${text}
-                onInput=\${(e) => setText(e.target.value)}
+            <form onSubmit=${handleSubmit}>
+              <input ref=${inputRef}
+                type="text" value=${text}
+                onInput=${(e) => setText(e.target.value)}
                 placeholder="How do these concepts relate?"
                 class="w-full bg-[#0a0e1a] border border-slate-800/60 rounded-lg px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#f0abfc]/40 font-sans" />
               <div class="flex gap-2 mt-4">
@@ -146,7 +146,7 @@ html\`&lt;\${SynthesisCanvas} anchors=\${anchors} />\`</code></pre>
                   class="flex-1 font-mono text-xs px-4 py-2.5 rounded-lg bg-[#f0abfc]/10 border border-[#f0abfc]/30 text-[#f0abfc] hover:bg-[#f0abfc]/20 transition-all">
                   Add Connection
                 </button>
-                <button type="button" onClick=\${onCancel}
+                <button type="button" onClick=${onCancel}
                   class="font-mono text-xs px-4 py-2.5 rounded-lg border border-slate-800/60 text-slate-400 hover:text-white hover:border-slate-600 transition-all">
                   Cancel
                 </button>
@@ -154,42 +154,42 @@ html\`&lt;\${SynthesisCanvas} anchors=\${anchors} />\`</code></pre>
             </form>
           </div>
         </div>
-      \`;
+      `;
     }
 
     // --- Summary Modal ---
     function SummaryModal({ connections, anchorMap, onClose }) {
-      return html\`
-        <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick=\${onClose}>
+      return html`
+        <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick=${onClose}>
           <div class="bg-[#0d1320] border border-slate-800/60 rounded-xl p-6 max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto fade-in"
-            onClick=\${(e) => e.stopPropagation()}>
+            onClick=${(e) => e.stopPropagation()}>
             <div class="font-mono text-xs text-[#f0abfc] tracking-wider uppercase mb-2">Your Concept Map</div>
-            <h3 class="text-xl font-bold text-white mb-4">\${connections.length} Connection\${connections.length !== 1 ? 's' : ''} Made</h3>
+            <h3 class="text-xl font-bold text-white mb-4">${connections.length} Connection${connections.length !== 1 ? 's' : ''} Made</h3>
 
-            \${connections.length === 0 ? html\`
+            ${connections.length === 0 ? html`
               <p class="text-slate-400 text-sm">You haven't drawn any connections yet. Click two concepts to link them.</p>
-            \` : html\`
+            ` : html`
               <div class="space-y-3">
-                \${connections.map((c, i) => html\`
+                ${connections.map((c, i) => html`
                   <div class="bg-[#0a0e1a] border border-slate-800/40 rounded-lg p-4">
                     <div class="flex items-center gap-2 text-sm mb-1">
-                      <span class="text-white font-medium">\${anchorMap[c.from]?.label}</span>
+                      <span class="text-white font-medium">${anchorMap[c.from]?.label}</span>
                       <span class="text-[#f0abfc]">\u2192</span>
-                      <span class="text-white font-medium">\${anchorMap[c.to]?.label}</span>
+                      <span class="text-white font-medium">${anchorMap[c.to]?.label}</span>
                     </div>
-                    <p class="font-mono text-xs text-slate-400 italic">\${c.label}</p>
+                    <p class="font-mono text-xs text-slate-400 italic">${c.label}</p>
                   </div>
-                \`)}
+                `)}
               </div>
-            \`}
+            `}
 
-            <button onClick=\${onClose}
+            <button onClick=${onClose}
               class="mt-6 w-full font-mono text-xs px-4 py-2.5 rounded-lg border border-slate-800/60 text-slate-400 hover:text-white hover:border-slate-600 transition-all">
               Close
             </button>
           </div>
         </div>
-      \`;
+      `;
     }
 
     // --- Main Component ---
@@ -252,33 +252,33 @@ html\`&lt;\${SynthesisCanvas} anchors=\${anchors} />\`</code></pre>
       const svgW = 920, svgH = 660;
       const nodeW = 200, nodeH = 50;
 
-      return html\`
+      return html`
         <div class="max-w-5xl mx-auto px-8 pb-12">
           <!-- Controls -->
           <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
             <div class="flex items-center gap-3">
               <div class="bg-[#0d1320] border border-slate-800/60 rounded-lg px-4 py-2 flex items-center gap-2">
-                <span class="font-mono text-xs text-slate-500">\${connections.length} connection\${connections.length !== 1 ? 's' : ''}</span>
+                <span class="font-mono text-xs text-slate-500">${connections.length} connection${connections.length !== 1 ? 's' : ''}</span>
               </div>
               <span class="font-mono text-xs text-slate-600">
-                \${selectedSource
-                  ? \`Now click target for "\${anchorMap[selectedSource]?.label}"\`
+                ${selectedSource
+                  ? `Now click target for "${anchorMap[selectedSource]?.label}"`
                   : pendingConnection
                     ? 'Labeling connection...'
                     : 'Click a concept to start connecting'}
               </span>
             </div>
             <div class="flex gap-2">
-              <button onClick=\${() => setShowDeleteMode(prev => !prev)}
-                class="font-mono text-xs px-4 py-2 rounded-lg border transition-all \${showDeleteMode ? 'border-red-500/50 text-red-400 bg-red-500/5' : 'border-slate-800/60 text-slate-400 hover:text-white hover:border-slate-600'} \${connections.length === 0 ? 'opacity-30 pointer-events-none' : ''}">
-                \${showDeleteMode ? 'Done Deleting' : 'Delete Mode'}
+              <button onClick=${() => setShowDeleteMode(prev => !prev)}
+                class="font-mono text-xs px-4 py-2 rounded-lg border transition-all ${showDeleteMode ? 'border-red-500/50 text-red-400 bg-red-500/5' : 'border-slate-800/60 text-slate-400 hover:text-white hover:border-slate-600'} ${connections.length === 0 ? 'opacity-30 pointer-events-none' : ''}">
+                ${showDeleteMode ? 'Done Deleting' : 'Delete Mode'}
               </button>
-              <button onClick=\${() => setShowSummary(true)}
+              <button onClick=${() => setShowSummary(true)}
                 class="font-mono text-xs px-4 py-2 rounded-lg border border-[#f0abfc]/30 text-[#f0abfc] hover:bg-[#f0abfc]/5 transition-all">
                 Finished
               </button>
-              <button onClick=\${clearAll}
-                class="font-mono text-xs px-4 py-2 rounded-lg border border-slate-800/60 text-slate-400 hover:text-white hover:border-slate-600 transition-all \${connections.length === 0 ? 'opacity-30 pointer-events-none' : ''}">
+              <button onClick=${clearAll}
+                class="font-mono text-xs px-4 py-2 rounded-lg border border-slate-800/60 text-slate-400 hover:text-white hover:border-slate-600 transition-all ${connections.length === 0 ? 'opacity-30 pointer-events-none' : ''}">
                 Clear All
               </button>
             </div>
@@ -286,105 +286,105 @@ html\`&lt;\${SynthesisCanvas} anchors=\${anchors} />\`</code></pre>
 
           <!-- Canvas -->
           <div class="bg-[#0d1320] border border-slate-800/60 rounded-2xl p-4 relative overflow-x-auto">
-            <svg viewBox="0 0 \${svgW} \${svgH}" class="w-full" style="min-height: 480px">
+            <svg viewBox="0 0 ${svgW} ${svgH}" class="w-full" style="min-height: 480px">
               <!-- Grid -->
-              \${Array.from({ length: 19 }, (_, i) => html\`
-                <line x1=\${i * 50} y1="0" x2=\${i * 50} y2=\${svgH} stroke="#1e293b" stroke-width="0.5" opacity="0.15" />
-              \`)}
-              \${Array.from({ length: 14 }, (_, i) => html\`
-                <line x1="0" y1=\${i * 50} x2=\${svgW} y2=\${i * 50} stroke="#1e293b" stroke-width="0.5" opacity="0.15" />
-              \`)}
+              ${Array.from({ length: 19 }, (_, i) => html`
+                <line x1=${i * 50} y1="0" x2=${i * 50} y2=${svgH} stroke="#1e293b" stroke-width="0.5" opacity="0.15" />
+              `)}
+              ${Array.from({ length: 14 }, (_, i) => html`
+                <line x1="0" y1=${i * 50} x2=${svgW} y2=${i * 50} stroke="#1e293b" stroke-width="0.5" opacity="0.15" />
+              `)}
 
               <!-- Connections -->
-              \${connections.map(c => html\`
-                <\${ConnectionPath}
-                  conn=\${c}
-                  anchorMap=\${anchorMap}
-                  isEditing=\${showDeleteMode}
-                  onDelete=\${showDeleteMode ? handleDelete : null} />
-              \`)}
+              ${connections.map(c => html`
+                <${ConnectionPath}
+                  conn=${c}
+                  anchorMap=${anchorMap}
+                  isEditing=${showDeleteMode}
+                  onDelete=${showDeleteMode ? handleDelete : null} />
+              `)}
 
               <!-- Preview line while selecting -->
-              \${selectedSource && html\`
-                <circle cx=\${anchorMap[selectedSource].x + nodeW/2} cy=\${anchorMap[selectedSource].y + nodeH/2}
-                  r=\${nodeW * 0.8} fill="none" stroke="#f0abfc" stroke-width="0.5"
+              ${selectedSource && html`
+                <circle cx=${anchorMap[selectedSource].x + nodeW/2} cy=${anchorMap[selectedSource].y + nodeH/2}
+                  r=${nodeW * 0.8} fill="none" stroke="#f0abfc" stroke-width="0.5"
                   stroke-dasharray="4 4" opacity="0.2" />
-              \`}
+              `}
 
               <!-- Anchor nodes -->
-              \${anchorData.map(a => {
+              ${anchorData.map(a => {
                 const isSource = selectedSource === a.id;
                 const connectedCount = connections.filter(c => c.from === a.id || c.to === a.id).length;
 
-                return html\`
-                  <g onClick=\${() => handleAnchorClick(a.id)} style="cursor: pointer" class="concept-node">
+                return html`
+                  <g onClick=${() => handleAnchorClick(a.id)} style="cursor: pointer" class="concept-node">
                     <!-- Node background -->
-                    <rect x=\${a.x} y=\${a.y} width=\${nodeW} height=\${nodeH} rx="12"
-                      fill=\${isSource ? '#f0abfc10' : '#0d1320'}
-                      stroke=\${isSource ? '#f0abfc' : '#334155'}
-                      stroke-width=\${isSource ? 2 : 1} />
+                    <rect x=${a.x} y=${a.y} width=${nodeW} height=${nodeH} rx="12"
+                      fill=${isSource ? '#f0abfc10' : '#0d1320'}
+                      stroke=${isSource ? '#f0abfc' : '#334155'}
+                      stroke-width=${isSource ? 2 : 1} />
                     <!-- Connection count badge -->
-                    \${connectedCount > 0 && html\`
-                      <circle cx=\${a.x + nodeW - 8} cy=\${a.y + 8} r="8"
+                    ${connectedCount > 0 && html`
+                      <circle cx=${a.x + nodeW - 8} cy=${a.y + 8} r="8"
                         fill="#f0abfc" opacity="0.2" />
-                      <text x=\${a.x + nodeW - 8} y=\${a.y + 9} text-anchor="middle"
+                      <text x=${a.x + nodeW - 8} y=${a.y + 9} text-anchor="middle"
                         dominant-baseline="middle" fill="#f0abfc"
-                        font-family="DM Mono" font-size="8">\${connectedCount}</text>
-                    \`}
+                        font-family="DM Mono" font-size="8">${connectedCount}</text>
+                    `}
                     <!-- Label -->
-                    <text x=\${a.x + nodeW/2} y=\${a.y + nodeH/2 + 1} text-anchor="middle"
-                      dominant-baseline="middle" fill=\${isSource ? '#f0abfc' : '#e2e8f0'}
+                    <text x=${a.x + nodeW/2} y=${a.y + nodeH/2 + 1} text-anchor="middle"
+                      dominant-baseline="middle" fill=${isSource ? '#f0abfc' : '#e2e8f0'}
                       font-family="DM Sans" font-size="11" font-weight="500">
-                      \${a.label.length > 28 ? a.label.slice(0, 27) + '\u2026' : a.label}
+                      ${a.label.length > 28 ? a.label.slice(0, 27) + '\u2026' : a.label}
                     </text>
                   </g>
-                \`;
+                `;
               })}
             </svg>
           </div>
 
           <!-- Connection list -->
-          \${connections.length > 0 && html\`
+          ${connections.length > 0 && html`
             <div class="mt-4 space-y-1">
               <span class="font-mono text-xs text-slate-600 block mb-2">Your connections:</span>
-              \${connections.map((c, i) => html\`
+              ${connections.map((c, i) => html`
                 <div class="flex items-center gap-2 text-xs">
-                  <span class="font-mono text-[#f0abfc] w-5 text-right">\${i + 1}.</span>
-                  <span class="text-slate-300">\${anchorMap[c.from]?.label}</span>
+                  <span class="font-mono text-[#f0abfc] w-5 text-right">${i + 1}.</span>
+                  <span class="text-slate-300">${anchorMap[c.from]?.label}</span>
                   <span class="text-slate-600">\u2192</span>
-                  <span class="text-slate-300">\${anchorMap[c.to]?.label}</span>
-                  <span class="text-slate-600 italic font-mono ml-1">\${c.label}</span>
+                  <span class="text-slate-300">${anchorMap[c.to]?.label}</span>
+                  <span class="text-slate-600 italic font-mono ml-1">${c.label}</span>
                 </div>
-              \`)}
+              `)}
             </div>
-          \`}
+          `}
         </div>
 
         <!-- Label input modal -->
-        \${pendingConnection && html\`
-          <\${LabelInput}
-            from=\${anchorMap[pendingConnection.from]?.label}
-            to=\${anchorMap[pendingConnection.to]?.label}
-            onSubmit=\${handleLabelSubmit}
-            onCancel=\${handleLabelCancel} />
-        \`}
+        ${pendingConnection && html`
+          <${LabelInput}
+            from=${anchorMap[pendingConnection.from]?.label}
+            to=${anchorMap[pendingConnection.to]?.label}
+            onSubmit=${handleLabelSubmit}
+            onCancel=${handleLabelCancel} />
+        `}
 
         <!-- Summary modal -->
-        \${showSummary && html\`
-          <\${SummaryModal}
-            connections=\${connections}
-            anchorMap=\${anchorMap}
-            onClose=\${() => setShowSummary(false)} />
-        \`}
-      \`;
+        ${showSummary && html`
+          <${SummaryModal}
+            connections=${connections}
+            anchorMap=${anchorMap}
+            onClose=${() => setShowSummary(false)} />
+        `}
+      `;
     }
 
     // --- Render ---
     function App() {
-      return html\`<\${SynthesisCanvas} anchors=\${anchors} />\`;
+      return html`<${SynthesisCanvas} anchors=${anchors} />`;
     }
 
-    render(html\`<\${App} />\`, document.getElementById('app'));
+    render(html`<${App} />`, document.getElementById('app'));
   </script>
 </body>
 </html>

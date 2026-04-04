@@ -137,50 +137,50 @@ html\`&lt;\${GuidedRevealPoster} sections=\${sections} title="My Cheatsheet" />\
       const isRevealed = revealed.has(section.id);
       const showHotspot = mode === 'guided' ? isNext : !isRevealed;
 
-      return html\`
-        <div class="poster-section \${isRevealed ? 'revealed' : 'dimmed'} relative"
-          style="\${isRevealed ? '' : 'cursor: pointer'}"
-          onClick=\${() => !isRevealed && onReveal(section.id)}>
+      return html`
+        <div class="poster-section ${isRevealed ? 'revealed' : 'dimmed'} relative"
+          style="${isRevealed ? '' : 'cursor: pointer'}"
+          onClick=${() => !isRevealed && onReveal(section.id)}>
 
           <!-- Hotspot badge -->
-          \${showHotspot && !isRevealed && html\`
+          ${showHotspot && !isRevealed && html`
             <div class="absolute -top-2 -left-2 z-10 w-7 h-7 rounded-full bg-[#fcd34d] text-[#0a0e1a] flex items-center justify-center font-mono text-xs font-bold hotspot-pulse">
-              \${index + 1}
+              ${index + 1}
             </div>
-          \`}
+          `}
 
-          <div class="bg-[#0d1320] border rounded-xl p-5 transition-all \${isRevealed ? 'border-slate-800/60' : 'border-slate-800/30'} \${isNext && !isRevealed ? 'glow-border' : ''}">
+          <div class="bg-[#0d1320] border rounded-xl p-5 transition-all ${isRevealed ? 'border-slate-800/60' : 'border-slate-800/30'} ${isNext && !isRevealed ? 'glow-border' : ''}">
             <!-- Section header -->
             <div class="flex items-center gap-3 mb-3">
-              <div class="w-1 h-6 rounded-full" style="background: \${section.color}"></div>
-              <h3 class="font-bold text-white text-sm">\${section.title}</h3>
-              <span class="font-mono text-xs ml-auto" style="color: \${section.color}">\${String(index + 1).padStart(2, '0')}</span>
+              <div class="w-1 h-6 rounded-full" style="background: ${section.color}"></div>
+              <h3 class="font-bold text-white text-sm">${section.title}</h3>
+              <span class="font-mono text-xs ml-auto" style="color: ${section.color}">${String(index + 1).padStart(2, '0')}</span>
             </div>
 
             <!-- Items -->
             <div class="space-y-2">
-              \${section.items.map(item => html\`
+              ${section.items.map(item => html`
                 <div class="flex gap-3">
-                  <span class="font-mono text-xs shrink-0 mt-0.5 w-24 text-right" style="color: \${section.color}">\${item.label}</span>
+                  <span class="font-mono text-xs shrink-0 mt-0.5 w-24 text-right" style="color: ${section.color}">${item.label}</span>
                   <div class="flex-1">
-                    <span class="text-slate-300 text-xs">\${item.text}</span>
-                    \${item.example && isRevealed && html\`
-                      <div class="text-slate-500 text-xs font-mono mt-1 italic">\${item.example}</div>
-                    \`}
+                    <span class="text-slate-300 text-xs">${item.text}</span>
+                    ${item.example && isRevealed && html`
+                      <div class="text-slate-500 text-xs font-mono mt-1 italic">${item.example}</div>
+                    `}
                   </div>
                 </div>
-              \`)}
+              `)}
             </div>
           </div>
 
           <!-- Annotation -->
-          \${isRevealed && html\`
-            <div class="fade-in mt-2 ml-4 pl-4 border-l-2 py-1" style="border-color: \${section.color}40">
-              <p class="text-xs leading-relaxed" style="color: \${section.color}cc">\${section.annotation}</p>
+          ${isRevealed && html`
+            <div class="fade-in mt-2 ml-4 pl-4 border-l-2 py-1" style="border-color: ${section.color}40">
+              <p class="text-xs leading-relaxed" style="color: ${section.color}cc">${section.annotation}</p>
             </div>
-          \`}
+          `}
         </div>
-      \`;
+      `;
     }
 
     // --- Main Component ---
@@ -216,19 +216,19 @@ html\`&lt;\${GuidedRevealPoster} sections=\${sections} title="My Cheatsheet" />\
         setGuidedIndex(0);
       }, []);
 
-      return html\`
+      return html`
         <div class="max-w-5xl mx-auto px-8 pb-12">
           <!-- Controls -->
           <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
             <div class="flex items-center gap-3">
               <!-- Mode toggle -->
               <div class="bg-[#0d1320] border border-slate-800/60 rounded-lg flex overflow-hidden">
-                <button onClick=\${() => { setMode('guided'); reset(); }}
-                  class="font-mono text-xs px-3 py-2 transition-all \${mode === 'guided' ? 'bg-[#fcd34d]/10 text-[#fcd34d]' : 'text-slate-500 hover:text-slate-300'}">
+                <button onClick=${() => { setMode('guided'); reset(); }}
+                  class="font-mono text-xs px-3 py-2 transition-all ${mode === 'guided' ? 'bg-[#fcd34d]/10 text-[#fcd34d]' : 'text-slate-500 hover:text-slate-300'}">
                   Guided
                 </button>
-                <button onClick=\${() => setMode('explore')}
-                  class="font-mono text-xs px-3 py-2 transition-all \${mode === 'explore' ? 'bg-[#fcd34d]/10 text-[#fcd34d]' : 'text-slate-500 hover:text-slate-300'}">
+                <button onClick=${() => setMode('explore')}
+                  class="font-mono text-xs px-3 py-2 transition-all ${mode === 'explore' ? 'bg-[#fcd34d]/10 text-[#fcd34d]' : 'text-slate-500 hover:text-slate-300'}">
                   Explore
                 </button>
               </div>
@@ -236,18 +236,18 @@ html\`&lt;\${GuidedRevealPoster} sections=\${sections} title="My Cheatsheet" />\
               <div class="flex items-center gap-3">
                 <div class="w-24 h-1.5 bg-slate-800 rounded-full overflow-hidden">
                   <div class="h-full bg-[#fcd34d] rounded-full transition-all duration-500"
-                    style="width: \${progress}%"></div>
+                    style="width: ${progress}%"></div>
                 </div>
-                <span class="font-mono text-xs text-slate-500">\${revealed.size}/\${sectionData.length}</span>
+                <span class="font-mono text-xs text-slate-500">${revealed.size}/${sectionData.length}</span>
               </div>
             </div>
             <div class="flex gap-2">
-              <button onClick=\${revealAll}
-                class="font-mono text-xs px-4 py-2 rounded-lg border border-slate-800/60 text-slate-400 hover:text-white hover:border-slate-600 transition-all \${allRevealed ? 'opacity-30 pointer-events-none' : ''}">
+              <button onClick=${revealAll}
+                class="font-mono text-xs px-4 py-2 rounded-lg border border-slate-800/60 text-slate-400 hover:text-white hover:border-slate-600 transition-all ${allRevealed ? 'opacity-30 pointer-events-none' : ''}">
                 Reveal All
               </button>
-              <button onClick=\${reset}
-                class="font-mono text-xs px-4 py-2 rounded-lg border border-slate-800/60 text-slate-400 hover:text-white hover:border-slate-600 transition-all \${revealed.size === 0 ? 'opacity-30 pointer-events-none' : ''}">
+              <button onClick=${reset}
+                class="font-mono text-xs px-4 py-2 rounded-lg border border-slate-800/60 text-slate-400 hover:text-white hover:border-slate-600 transition-all ${revealed.size === 0 ? 'opacity-30 pointer-events-none' : ''}">
                 Reset
               </button>
             </div>
@@ -255,44 +255,44 @@ html\`&lt;\${GuidedRevealPoster} sections=\${sections} title="My Cheatsheet" />\
 
           <!-- Poster title -->
           <div class="text-center mb-8">
-            <h2 class="text-2xl font-bold text-white tracking-tight">\${title || 'Skill Design Cheatsheet'}</h2>
+            <h2 class="text-2xl font-bold text-white tracking-tight">${title || 'Skill Design Cheatsheet'}</h2>
             <p class="font-mono text-xs text-slate-600 mt-2">
-              \${mode === 'guided'
-                ? (allRevealed ? 'Complete! Scroll through your reference poster.' : \`Click hotspot \${guidedIndex + 1} to continue\`)
+              ${mode === 'guided'
+                ? (allRevealed ? 'Complete! Scroll through your reference poster.' : `Click hotspot ${guidedIndex + 1} to continue`)
                 : 'Click any dimmed section to reveal it'}
             </p>
           </div>
 
           <!-- Poster grid -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            \${sectionData.map((section, i) => html\`
-              <\${PosterSection}
-                section=\${section}
-                index=\${i}
-                revealed=\${revealed}
-                isNext=\${mode === 'guided' && i === guidedIndex}
-                mode=\${mode}
-                onReveal=\${revealSection} />
-            \`)}
+            ${sectionData.map((section, i) => html`
+              <${PosterSection}
+                section=${section}
+                index=${i}
+                revealed=${revealed}
+                isNext=${mode === 'guided' && i === guidedIndex}
+                mode=${mode}
+                onReveal=${revealSection} />
+            `)}
           </div>
 
           <!-- Complete state -->
-          \${allRevealed && html\`
+          ${allRevealed && html`
             <div class="fade-in mt-8 bg-[#0d1320] border border-[#fcd34d]/20 rounded-xl p-6 text-center">
               <div class="text-[#fcd34d] font-mono text-xs tracking-wider uppercase mb-2">Reference Complete</div>
               <p class="text-slate-400 text-sm">All 6 sections revealed. This poster is now a complete quick-reference for skill design. Screenshot it or bookmark this page.</p>
             </div>
-          \`}
+          `}
         </div>
-      \`;
+      `;
     }
 
     // --- Render ---
     function App() {
-      return html\`<\${GuidedRevealPoster} sections=\${sections} title="Claude Skill Design Cheatsheet" />\`;
+      return html`<${GuidedRevealPoster} sections=${sections} title="Claude Skill Design Cheatsheet" />`;
     }
 
-    render(html\`<\${App} />\`, document.getElementById('app'));
+    render(html`<${App} />`, document.getElementById('app'));
   </script>
 </body>
 </html>
