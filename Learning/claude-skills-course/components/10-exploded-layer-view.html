@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Exploded Layer View — Component Demo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['DM Sans', 'sans-serif'], mono: ['DM Mono', 'monospace'] } } }
+    }
+  </script>
+  <style>
+    .grain { background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); }
+    .layer-card {
+      transition: all 0.6s cubic-bezier(.22,.68,0,.71);
+      cursor: pointer;
+    }
+    .layer-card:hover { transform: translateY(-2px); }
+    .layer-content { transition: all 0.4s cubic-bezier(.22,.68,0,.71); }
+    @keyframes fadeSlideIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+    .content-enter { animation: fadeSlideIn 0.4s cubic-bezier(.22,.68,0,.71) forwards; }
+    @keyframes connectionDraw { from{stroke-dashoffset:80} to{stroke-dashoffset:0} }
+    .connection-line { stroke-dasharray: 80; animation: connectionDraw 1s cubic-bezier(.22,.68,0,.71) forwards; }
+    @keyframes pulseGlow {
+      0%,100% { box-shadow: 0 0 0 0 rgba(167,139,250,0); }
+      50% { box-shadow: 0 0 20px 4px rgba(167,139,250,0.1); }
+    }
+    .layer-isolated { animation: pulseGlow 2s ease-in-out infinite; }
+    .connector-dot {
+      transition: all 0.4s cubic-bezier(.22,.68,0,.71);
+    }
+  </style>
+</head>
+<body class="bg-[#0a0e1a] text-slate-200 font-sans grain min-h-screen">
+
+  <div class="max-w-5xl mx-auto px-8 pt-20 pb-8">
+    <div class="text-[#a78bfa] font-mono text-xs tracking-[0.25em] mb-3 uppercase">Component 10</div>
+    <h1 class="text-4xl font-bold text-white mb-3 tracking-tight">Exploded Layer View</h1>
+    <p class="text-slate-400 max-w-xl leading-relaxed">Click to explode the stack and reveal internal structure. Click a layer to isolate it. Connection lines show how layers communicate. Click the background to reassemble.</p>
+  </div>
+
+  <div id="app"></div>
+
+  <div class="max-w-5xl mx-auto px-8 py-20">
+    <div class="border-t border-slate-800 pt-12">
+      <h2 class="text-lg font-bold text-white mb-6">Usage</h2>
+      <pre class="bg-[#0d1320] rounded-xl p-6 font-mono text-sm text-slate-300 border border-slate-800/60 overflow-x-auto"><code>const layers = [
+  {
+    id: "layer1",
+    label: "Top Layer",
+    subtitle: "Always loaded",
+    color: "#a78bfa",
+    contents: [
+      { label: "field-name", description: "What this contains" }
+    ]
+  },
+  // ...more layers
+];
+const connections = [
+  { from: "layer1", to: "layer2", label: "triggers" }
+];
+
+html\`&lt;\${ExplodedLayerView} layers=\${layers} connections=\${connections} />\`</code></pre>
+    </div>
+  </div>
+
+  <script type="module">
+    import { h, render } from 'https://esm.sh/preact@10';
+    import { useState, useEffect, useRef, useCallback, useMemo } from 'https://esm.sh/preact@10/hooks';
+    import htm from 'https://esm.sh/htm@3';
+    const html = htm.bind(h);
+
+    // ── Reusable Component ──────────────────────────────────
+
+    function ExplodedLayerView({ layers, connections }) {
+      const [mode, setMode] = useState('collapsed'); // collapsed | exploded | isolated
+      const [isolatedId, setIsolatedId] = useState(null);
+      const containerRef = useRef(null);
+
+      const handleLayerClick = useCallback((layerId, e) => {
+        e.stopPropagation();
+        if (mode === 'collapsed') {
+          setMode('exploded');
+        } else if (mode === 'exploded') {
+          setIsolatedId(layerId);
+          setMode('isolated');
+        } else if (mode === 'isolated') {
+          if (isolatedId === layerId) {
+            // Click same layer again: back to exploded
+            setIsolatedId(null);
+            setMode('exploded');
+          } else {
+            // Click different layer: isolate that one
+            setIsolatedId(layerId);
+          }
+        }
+      }, [mode, isolatedId]);
+
+      const handleBackgroundClick = useCallback(() => {
+        if (mode === 'isolated') {
+          setIsolatedId(null);
+          setMode('exploded');
+        } else if (mode === 'exploded') {
+          setMode('collapsed');
+        }
+      }, [mode]);
+
+      const handleReassemble = useCallback((e) => {
+        e.stopPropagation();
+        setMode('collapsed');
+        setIsolatedId(null);
+      }, []);
+
+      // Compute layer positioning
+      const getLayerStyle = useCallback((layer, idx) => {
+        const total = layers.length;
+
+        if (mode === 'collapsed') {
+          return {
+            transform: `translateY(${idx * 8}px) scale(${1 - idx * 0.015})`,
+            opacity: 1,
+            zIndex: total - idx,
+            marginBottom: '-60px',
+          };
+        }
+
+        if (mode === 'exploded') {
+          return {
+            transform: 'translateY(0) scale(1)',
+            opacity: 1,
+            zIndex: total - idx,
+            marginBottom: '24px',
+          };
+        }
+
+        if (mode === 'isolated') {
+          const isIsolated = layer.id === isolatedId;
+          if (isIsolated) {
+            return {
+              transform: 'translateY(0) scale(1)',
+              opacity: 1,
+              zIndex: 10,
+              marginBottom: '24px',
+            };
+          }
+          return {
+            transform: `translateY(0) scale(0.96)`,
+            opacity: 0.15,
+            zIndex: 1,
+            marginBottom: '16px',
+            pointerEvents: 'auto',
+          };
+        }
+      }, [mode, isolatedId, layers]);
+
+      // Connection indicators between layers
+      const activeConnections = useMemo(() => {
+        if (mode === 'collapsed') return [];
+        return connections;
+      }, [mode, connections]);
+
+      const isolatedLayer = layers.find(l => l.id === isolatedId);
+      const connectedIds = useMemo(() => {
+        if (!isolatedId) return new Set();
+        const ids = new Set();
+        connections.forEach(c => {
+          if (c.from === isolatedId) ids.add(c.to);
+          if (c.to === isolatedId) ids.add(c.from);
+        });
+        return ids;
+      }, [isolatedId, connections]);
+
+      return html`
+        <div class="max-w-5xl mx-auto px-8 pb-12" onClick=${handleBackgroundClick} ref=${containerRef}>
+          <!-- Controls -->
+          <div class="flex items-center gap-4 mb-8">
+            <div class="flex items-center gap-2">
+              ${['collapsed', 'exploded', 'isolated'].map(m => html`
+                <div key=${m} class="flex items-center gap-1.5">
+                  <div class="w-2 h-2 rounded-full ${mode === m ? 'bg-[#a78bfa]' : 'bg-slate-700'}"></div>
+                  <span class="font-mono text-xs ${mode === m ? 'text-[#a78bfa]' : 'text-slate-600'}">${m}</span>
+                </div>
+              `)}
+            </div>
+            ${mode !== 'collapsed' && html`
+              <button
+                onClick=${handleReassemble}
+                class="ml-auto px-4 py-1.5 rounded-lg bg-slate-800/60 border border-slate-700/40 font-mono text-xs text-slate-400 hover:text-[#a78bfa] hover:border-[#a78bfa]/30 transition-all"
+              >Reassemble</button>
+            `}
+            ${mode === 'collapsed' && html`
+              <span class="ml-auto font-mono text-xs text-slate-500">Click the stack to explode it</span>
+            `}
+          </div>
+
+          <!-- Layer stack -->
+          <div class="relative" style="perspective: 1000px;">
+            ${layers.map((layer, idx) => {
+              const style = getLayerStyle(layer, idx);
+              const isIsolated = mode === 'isolated' && layer.id === isolatedId;
+              const showContent = mode === 'exploded' || isIsolated;
+              const isConnected = mode === 'isolated' && connectedIds.has(layer.id);
+
+              return html`
+                <div
+                  key=${layer.id}
+                  class="layer-card ${isIsolated ? 'layer-isolated' : ''}"
+                  style=${{
+                    ...style,
+                    transition: 'all 0.6s cubic-bezier(.22,.68,0,.71)',
+                  }}
+                  onClick=${(e) => handleLayerClick(layer.id, e)}
+                >
+                  <div class="bg-[#0d1320] rounded-xl border overflow-hidden" style=${{
+                    borderColor: isIsolated ? layer.color : isConnected ? layer.color + '40' : 'rgba(51,65,85,0.4)',
+                  }}>
+                    <!-- Layer header -->
+                    <div class="px-5 py-4 flex items-center gap-3" style=${{
+                      borderBottom: showContent ? '1px solid rgba(51,65,85,0.3)' : 'none',
+                    }}>
+                      <!-- Layer number badge -->
+                      <div class="w-8 h-8 rounded-lg flex items-center justify-center font-mono text-xs font-medium flex-shrink-0" style=${{
+                        background: layer.color + '15',
+                        color: layer.color,
+                        border: `1px solid ${layer.color}30`,
+                      }}>L${idx + 1}</div>
+                      <div class="flex-1 min-w-0">
+                        <div class="text-sm font-medium text-white">${layer.label}</div>
+                        <div class="font-mono text-xs mt-0.5" style=${{ color: layer.color + 'aa' }}>${layer.subtitle}</div>
+                      </div>
+                      <!-- Connection dots -->
+                      ${mode !== 'collapsed' && html`
+                        <div class="flex gap-1">
+                          ${connections.filter(c => c.from === layer.id || c.to === layer.id).map((c, ci) => {
+                            const otherLayer = layers.find(l => l.id === (c.from === layer.id ? c.to : c.from));
+                            const direction = c.from === layer.id ? 'down' : 'up';
+                            return html`
+                              <div key=${ci} class="connector-dot group relative">
+                                <div class="w-5 h-5 rounded-full flex items-center justify-center" style=${{
+                                  background: otherLayer?.color + '15',
+                                  border: `1px solid ${otherLayer?.color}30`,
+                                }}>
+                                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                                    ${direction === 'down'
+                                      ? html`<path d="M5 2v6M3 6l2 2 2-2" stroke="${otherLayer?.color}" stroke-width="1.2" stroke-linecap="round"/>`
+                                      : html`<path d="M5 8V2M3 4l2-2 2 2" stroke="${otherLayer?.color}" stroke-width="1.2" stroke-linecap="round"/>`
+                                    }
+                                  </svg>
+                                </div>
+                                <!-- Tooltip -->
+                                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 rounded bg-slate-800 border border-slate-700/60 font-mono text-[10px] text-slate-300 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                  ${c.label} ${direction === 'down' ? '->' : '<-'} ${otherLayer?.label}
+                                </div>
+                              </div>
+                            `;
+                          })}
+                        </div>
+                      `}
+                    </div>
+
+                    <!-- Layer contents (visible when exploded/isolated) -->
+                    ${showContent && html`
+                      <div class="layer-content" style=${{
+                        maxHeight: showContent ? '600px' : '0',
+                        opacity: showContent ? 1 : 0,
+                        overflow: 'hidden',
+                      }}>
+                        <div class="p-5">
+                          ${layer.description && html`
+                            <div class="text-sm text-slate-400 leading-relaxed mb-4 content-enter">${layer.description}</div>
+                          `}
+                          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            ${layer.contents.map((item, ci) => html`
+                              <div key=${ci} class="content-enter flex items-start gap-3 px-4 py-3 rounded-lg bg-[#0a0e1a] border border-slate-800/40" style=${{ animationDelay: `${ci * 80}ms` }}>
+                                <div class="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0" style=${{ background: layer.color }}></div>
+                                <div>
+                                  <div class="font-mono text-xs text-slate-300">${item.label}</div>
+                                  <div class="text-xs text-slate-500 mt-0.5 leading-relaxed">${item.description}</div>
+                                </div>
+                              </div>
+                            `)}
+                          </div>
+                        </div>
+                      </div>
+                    `}
+                  </div>
+
+                  <!-- Connection label between layers -->
+                  ${mode !== 'collapsed' && idx < layers.length - 1 && html`
+                    <div class="flex justify-center py-2" onClick=${(e) => e.stopPropagation()}>
+                      ${connections.filter(c => c.from === layer.id && layers.findIndex(l => l.id === c.to) === idx + 1).map(c => html`
+                        <div key=${c.from + c.to} class="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/60 border border-slate-800/30">
+                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 2v8M4 8l2 2 2-2" stroke="#a78bfa" stroke-width="1" stroke-linecap="round"/></svg>
+                          <span class="font-mono text-[10px] text-slate-500">${c.label}</span>
+                        </div>
+                      `)}
+                    </div>
+                  `}
+                </div>
+              `;
+            })}
+          </div>
+
+          <!-- Isolated layer detail panel -->
+          ${mode === 'isolated' && isolatedLayer && html`
+            <div class="mt-8 content-enter bg-[#0d1320] rounded-xl border p-5" style=${{ borderColor: isolatedLayer.color + '30' }} onClick=${(e) => e.stopPropagation()}>
+              <div class="font-mono text-xs tracking-wide uppercase mb-3" style=${{ color: isolatedLayer.color }}>${isolatedLayer.label} -- Detail View</div>
+              <div class="text-sm text-slate-300 leading-relaxed mb-4">${isolatedLayer.detailText || isolatedLayer.description}</div>
+              ${isolatedLayer.codeExample && html`
+                <div class="bg-[#0a0e1a] rounded-lg border border-slate-800/40 p-4 font-mono text-xs text-slate-400 leading-relaxed whitespace-pre-wrap">${isolatedLayer.codeExample}</div>
+              `}
+              <!-- Show connections from this layer -->
+              <div class="mt-4 flex flex-wrap gap-2">
+                ${connections.filter(c => c.from === isolatedLayer.id || c.to === isolatedLayer.id).map(c => {
+                  const other = layers.find(l => l.id === (c.from === isolatedLayer.id ? c.to : c.from));
+                  const direction = c.from === isolatedLayer.id ? 'outgoing' : 'incoming';
+                  return html`
+                    <div key=${c.from + c.to} class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900/40 border border-slate-800/30">
+                      <div class="w-2 h-2 rounded-full" style=${{ background: other?.color }}></div>
+                      <span class="font-mono text-xs text-slate-400">${direction === 'outgoing' ? `${c.label} -> ${other?.label}` : `${other?.label} -> ${c.label}`}</span>
+                    </div>
+                  `;
+                })}
+              </div>
+            </div>
+          `}
+        </div>
+      `;
+    }
+
+    // ── Demo Data ──────────────────────────────────────────
+
+    const demoLayers = [
+      {
+        id: 'frontmatter',
+        label: 'Frontmatter',
+        subtitle: 'Always loaded -- 200 tokens',
+        color: '#a78bfa',
+        description: 'The frontmatter is the skill\'s identity card. Claude reads it for every message to decide if a skill matches. Keep it minimal -- every token here is always in context.',
+        detailText: 'Frontmatter fields are parsed as YAML between --- markers. These fields are loaded into Claude\'s context with every single message, so they must be concise. The description field is the most important -- it determines whether the skill gets activated.',
+        codeExample: `---
+name: deploy
+description: "Use when the user asks to deploy, ship, or push to production"
+allowed-tools: Read Bash(git*) Bash(ssh*)
+disable-model-invocation: true
+---`,
+        contents: [
+          { label: 'name', description: 'Short identifier. Used in logs and /skill commands.' },
+          { label: 'description', description: 'Trigger phrases that Claude pattern-matches against user messages.' },
+          { label: 'allowed-tools', description: 'Tool allowlist with glob patterns. Enforced at runtime.' },
+          { label: 'disable-model-invocation', description: 'Safety flag. Prevents sub-model calls during execution.' },
+        ]
+      },
+      {
+        id: 'body',
+        label: 'SKILL.md Body',
+        subtitle: 'Loaded on trigger -- 2K tokens',
+        color: '#22d3ee',
+        description: 'The body contains step-by-step instructions Claude follows after the skill is triggered. Loaded only when needed -- not wasted on every message.',
+        detailText: 'The body is everything after the closing --- of the frontmatter. It\'s loaded into context only when the skill is triggered. This is where you put detailed instructions, examples, and error handling. Think of it as a runbook.',
+        codeExample: `# Instructions
+
+1. Run \`git diff --stat HEAD~1\` to preview changes
+2. Deploy via \`ssh deploy@prod "cd /app && git pull"\`
+3. Verify: \`curl -sf /health\` must return 200
+4. On failure: rollback with \`git checkout HEAD~1\`
+
+# Error Handling
+
+If deploy fails, capture stderr and report to user.
+Never retry automatically -- always ask first.`,
+        contents: [
+          { label: '# Instructions', description: 'Numbered steps Claude executes in order. Be explicit.' },
+          { label: '# Error Handling', description: 'What to do when things go wrong. Prevents improvisation.' },
+          { label: '# Examples', description: 'Optional input/output examples that calibrate Claude\'s behavior.' },
+          { label: '# Constraints', description: 'Explicit boundaries: what NOT to do. Prevents overreach.' },
+        ]
+      },
+      {
+        id: 'references',
+        label: 'References',
+        subtitle: 'Loaded on demand -- variable size',
+        color: '#4ade80',
+        description: 'Reference files are loaded only when the body explicitly calls for them. This keeps context lean -- large API docs or templates don\'t consume tokens until needed.',
+        detailText: 'Reference files live in the references/ subdirectory of a skill. The SKILL.md body can reference them with relative paths. Claude loads them on demand -- only when it reaches an instruction that needs the file. This progressive loading is key to staying within context limits.',
+        codeExample: `# In SKILL.md body:
+See references/api-guide.md for endpoint details.
+Use the template in references/deploy-checklist.md.
+
+# Directory structure:
+my-skill/
+  SKILL.md
+  references/
+    api-guide.md      # Loaded when Claude hits the reference
+    deploy-checklist.md
+  scripts/
+    validate.py        # Executed by Bash tool`,
+        contents: [
+          { label: 'api-guide.md', description: 'API docs loaded when the skill needs endpoint details.' },
+          { label: 'templates/', description: 'Output templates Claude fills in during execution.' },
+          { label: 'scripts/', description: 'Executable scripts invoked via allowed Bash commands.' },
+          { label: 'examples/', description: 'Example inputs/outputs for calibrating behavior.' },
+        ]
+      }
+    ];
+
+    const demoConnections = [
+      { from: 'frontmatter', to: 'body', label: 'triggers loading of' },
+      { from: 'body', to: 'references', label: 'references on demand' },
+    ];
+
+    // ── App ────────────────────────────────────────────────
+
+    function App() {
+      return html`<${ExplodedLayerView} layers=${demoLayers} connections=${demoConnections} />`;
+    }
+
+    render(html`<${App} />`, document.getElementById('app'));
+  </script>
+</body>
+</html>

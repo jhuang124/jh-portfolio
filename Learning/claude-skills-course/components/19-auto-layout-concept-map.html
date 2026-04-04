@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Auto-Layout Concept Map — Component Demo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['DM Sans', 'sans-serif'], mono: ['DM Mono', 'monospace'] } } }
+    }
+  </script>
+  <style>
+    .grain { background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes nodeGlow { 0%,100% { filter: drop-shadow(0 0 4px transparent); } 50% { filter: drop-shadow(0 0 8px var(--glow-color)); } }
+    .fade-in { animation: fadeIn 0.45s cubic-bezier(.22,.68,0,.71) forwards; }
+    .node-hover { transition: all 0.3s cubic-bezier(.22,.68,0,.71); }
+    .node-hover:hover { transform: scale(1.05); }
+    .edge-line { transition: opacity 0.3s ease, stroke 0.3s ease; }
+  </style>
+</head>
+<body class="bg-[#0a0e1a] text-slate-200 font-sans grain min-h-screen">
+
+  <div class="max-w-5xl mx-auto px-8 pt-20 pb-8">
+    <div class="text-[#6ee7b7] font-mono text-xs tracking-[0.25em] mb-3 uppercase">Component 19</div>
+    <h1 class="text-4xl font-bold text-white mb-3 tracking-tight">Auto-Layout Concept Map</h1>
+    <p class="text-slate-400 max-w-xl leading-relaxed">A dependency graph of the 14 core Claude Skills concepts. Click any node to highlight its prerequisites (upstream) and dependents (downstream). Color-coded by category.</p>
+  </div>
+
+  <div id="app"></div>
+
+  <div class="max-w-5xl mx-auto px-8 py-20">
+    <div class="border-t border-slate-800 pt-12">
+      <h2 class="text-lg font-bold text-white mb-6">Usage</h2>
+      <pre class="bg-[#0d1320] rounded-xl p-6 font-mono text-sm text-slate-300 border border-slate-800/60 overflow-x-auto"><code>const nodes = [
+  { id: 'what-skills-are', label: 'What Skills Are', category: 'foundation',
+    description: '...', x: 80, y: 200 },
+  // ...more nodes
+];
+const edges = [
+  { from: 'what-skills-are', to: 'two-part-file' },
+  // ...more edges
+];
+
+html\`&lt;\${ConceptMap} nodes=\${nodes} edges=\${edges} categories=\${categories} />\`</code></pre>
+    </div>
+  </div>
+
+  <script type="module">
+    import { h, render } from 'https://esm.sh/preact@10';
+    import { useState, useEffect, useRef, useCallback, useMemo } from 'https://esm.sh/preact@10/hooks';
+    import htm from 'https://esm.sh/htm@3';
+    const html = htm.bind(h);
+
+    // --- Category definitions ---
+    const categories = {
+      foundation: { label: 'Foundation', color: '#fbbf24', description: 'Core concepts you learn first' },
+      core: { label: 'Core', color: '#60a5fa', description: 'Central skill-building concepts' },
+      threshold: { label: 'Threshold', color: '#34d399', description: 'The integrative "aha" moment' },
+      elective: { label: 'Elective', color: '#94a3b8', description: 'Supplementary / advanced topics' },
+    };
+
+    // --- Node positions: layered left-to-right DAG ---
+    const nodes = [
+      // Foundation (left column)
+      { id: 'what-skills-are', label: 'What Skills Are', category: 'foundation', x: 80, y: 100,
+        description: 'Skills are markdown files that extend Claude\'s capabilities on demand. They load into the context window when triggered, providing instructions and tool permissions for specific tasks.' },
+      { id: 'two-part-file', label: 'The Two-Part File', category: 'foundation', x: 80, y: 250,
+        description: 'Every skill has two parts: YAML frontmatter (machine-readable config) and a markdown body (human-readable instructions). The frontmatter is always loaded; the body loads on trigger.' },
+      { id: 'how-claude-selects', label: 'How Claude Selects', category: 'foundation', x: 80, y: 400,
+        description: 'Claude reads all skill descriptions at session start and uses them as routing labels. When a user request matches a description, Claude loads that skill\'s full body into context.' },
+
+      // Core (middle columns)
+      { id: 'description-first', label: 'Description-First Design', category: 'core', x: 290, y: 70,
+        description: 'The description field is the most important line in your skill. It\'s not metadata \u2014 it\'s a routing label. Write it for WHAT the skill does and WHEN to trigger it.' },
+      { id: 'progressive-disclosure', label: 'Progressive Disclosure', category: 'core', x: 290, y: 200,
+        description: 'Three levels of context loading: L1 (frontmatter, always), L2 (body, on trigger), L3 (references, on demand). Each level trades immediacy for depth.' },
+      { id: 'context-economics', label: 'Context Economics', category: 'core', x: 290, y: 340,
+        description: 'The context window is a zero-sum resource. Every token used for instructions is unavailable for the user\'s content, Claude\'s reasoning, and tool outputs. Budget accordingly.' },
+      { id: 'autonomy-surface', label: 'Autonomy Surface', category: 'core', x: 500, y: 70,
+        description: 'Six coordinated controls (tools, description, auto-trigger, per-step, references, delegation) that together determine how much freedom a skill has. They\'re not independent toggles.' },
+      { id: 'architecture-patterns', label: 'Architecture Patterns', category: 'core', x: 500, y: 200,
+        description: 'Five patterns for structuring skills: Monoskill, Scripted, Thin Router, Orchestrator, and Forked. Match the pattern to the problem\'s complexity and concurrency needs.' },
+      { id: 'per-step', label: 'Per-Step Constraints', category: 'core', x: 500, y: 340,
+        description: 'Constraints that apply to individual steps within a skill\'s execution, not just the skill as a whole. Enables fine-grained control over multi-step workflows.' },
+      { id: 'composability', label: 'Composability', category: 'core', x: 710, y: 130,
+        description: 'Skills can invoke other skills, share references, and coordinate through CLAUDE.md. Good composability comes from clear boundaries and minimal coupling.' },
+
+      // Threshold (right)
+      { id: 'info-architecture', label: 'Skills as Info Architecture', category: 'threshold', x: 710, y: 280,
+        description: 'The integrative insight: skills are fundamentally an information architecture problem. What loads when, what\'s visible to whom, and how context flows \u2014 these matter more than the code you write.' },
+
+      // Electives (bottom)
+      { id: 'testing', label: 'Testing Methodology', category: 'elective', x: 290, y: 480,
+        description: 'Three phases: triggering tests (does it fire correctly?), functional tests (does it produce right output?), and baseline tests (does it degrade Claude\'s general capabilities?).' },
+      { id: 'ecosystem', label: 'Ecosystem Decisions', category: 'elective', x: 500, y: 480,
+        description: 'Framework for choosing between CLAUDE.md, Skills, Hooks, and Subagents. Each mechanism has a sweet spot \u2014 not everything should be a skill.' },
+      { id: 'distribution', label: 'Distribution', category: 'elective', x: 710, y: 430,
+        description: 'Packaging skills as plugins for sharing across teams. Includes bundling, dependency management, and configuration for different environments.' },
+    ];
+
+    // --- Edges (dependency chain) ---
+    const edges = [
+      { from: 'what-skills-are', to: 'two-part-file' },
+      { from: 'two-part-file', to: 'how-claude-selects' },
+      { from: 'how-claude-selects', to: 'description-first' },
+      { from: 'two-part-file', to: 'progressive-disclosure' },
+      { from: 'description-first', to: 'progressive-disclosure' },
+      { from: 'progressive-disclosure', to: 'context-economics' },
+      { from: 'description-first', to: 'autonomy-surface' },
+      { from: 'context-economics', to: 'architecture-patterns' },
+      { from: 'autonomy-surface', to: 'architecture-patterns' },
+      { from: 'autonomy-surface', to: 'per-step' },
+      { from: 'architecture-patterns', to: 'composability' },
+      { from: 'per-step', to: 'composability' },
+      { from: 'architecture-patterns', to: 'info-architecture' },
+      { from: 'composability', to: 'info-architecture' },
+      { from: 'context-economics', to: 'info-architecture' },
+      { from: 'context-economics', to: 'testing' },
+      { from: 'architecture-patterns', to: 'ecosystem' },
+      { from: 'autonomy-surface', to: 'ecosystem' },
+      { from: 'composability', to: 'distribution' },
+      { from: 'info-architecture', to: 'distribution' },
+    ];
+
+    // --- Compute upstream/downstream ---
+    function getUpstream(nodeId, edgeList) {
+      const result = new Set();
+      const queue = [nodeId];
+      while (queue.length) {
+        const current = queue.shift();
+        edgeList.forEach(e => {
+          if (e.to === current && !result.has(e.from)) {
+            result.add(e.from);
+            queue.push(e.from);
+          }
+        });
+      }
+      return result;
+    }
+
+    function getDownstream(nodeId, edgeList) {
+      const result = new Set();
+      const queue = [nodeId];
+      while (queue.length) {
+        const current = queue.shift();
+        edgeList.forEach(e => {
+          if (e.from === current && !result.has(e.to)) {
+            result.add(e.to);
+            queue.push(e.to);
+          }
+        });
+      }
+      return result;
+    }
+
+    // --- Edge component ---
+    function Edge({ edge, nodeMap, selected, isUpstream, isDownstream, dimmed }) {
+      const from = nodeMap[edge.from];
+      const to = nodeMap[edge.to];
+      if (!from || !to) return null;
+
+      const nodeW = 150, nodeH = 44;
+      const x1 = from.x + nodeW;
+      const y1 = from.y + nodeH / 2;
+      const x2 = to.x;
+      const y2 = to.y + nodeH / 2;
+
+      // If from and to are in the same column, route differently
+      const dx = x2 - x1;
+      const cx1 = x1 + Math.max(dx * 0.4, 30);
+      const cy1 = y1;
+      const cx2 = x2 - Math.max(dx * 0.4, 30);
+      const cy2 = y2;
+
+      let color = '#334155';
+      let opacity = 0.4;
+      let width = 1;
+
+      if (selected) {
+        if (isUpstream) { color = '#fbbf24'; opacity = 0.8; width = 2; }
+        else if (isDownstream) { color = '#6ee7b7'; opacity = 0.8; width = 2; }
+        else if (dimmed) { opacity = 0.1; }
+      }
+
+      return html\`
+        <g>
+          <path d="M \${x1} \${y1} C \${cx1} \${cy1}, \${cx2} \${cy2}, \${x2} \${y2}"
+            fill="none" stroke=\${color} stroke-width=\${width}
+            class="edge-line" opacity=\${opacity} />
+          <!-- Arrowhead -->
+          <circle cx=\${x2 - 3} cy=\${y2} r="2.5" fill=\${color} opacity=\${opacity} />
+        </g>
+      \`;
+    }
+
+    // --- Node component ---
+    function Node({ node, category, selected, isUpstream, isDownstream, isSelf, dimmed, onClick }) {
+      const nodeW = 150, nodeH = 44;
+      let borderColor = category.color + '40';
+      let bgColor = '#0d1320';
+      let textColor = '#e2e8f0';
+      let opacity = 1;
+      let strokeWidth = 1;
+
+      if (selected) {
+        if (isSelf) {
+          borderColor = category.color;
+          bgColor = category.color + '15';
+          strokeWidth = 2;
+        } else if (isUpstream) {
+          borderColor = '#fbbf24';
+          bgColor = '#fbbf2410';
+          strokeWidth = 1.5;
+        } else if (isDownstream) {
+          borderColor = '#6ee7b7';
+          bgColor = '#6ee7b710';
+          strokeWidth = 1.5;
+        } else if (dimmed) {
+          opacity = 0.2;
+        }
+      }
+
+      return html\`
+        <g onClick=\${onClick} style="cursor: pointer; opacity: \${opacity}; transition: opacity 0.3s ease"
+          class="node-hover">
+          <rect x=\${node.x} y=\${node.y} width=\${nodeW} height=\${nodeH} rx="10"
+            fill=\${bgColor} stroke=\${borderColor} stroke-width=\${strokeWidth} />
+          <circle cx=\${node.x + 14} cy=\${node.y + nodeH/2} r="4"
+            fill=\${category.color} opacity="0.7" />
+          <text x=\${node.x + 26} y=\${node.y + nodeH/2 + 1} fill=\${textColor}
+            font-family="DM Sans" font-size="11" font-weight="500"
+            dominant-baseline="middle">
+            \${node.label.length > 18 ? node.label.slice(0, 17) + '\u2026' : node.label}
+          </text>
+        </g>
+      \`;
+    }
+
+    // --- Detail Panel ---
+    function DetailPanel({ node, upstream, downstream, categoryDef }) {
+      if (!node) return null;
+      return html\`
+        <div class="fade-in bg-[#0d1320] border border-slate-800/60 rounded-xl p-5 mt-4">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-2.5 h-2.5 rounded-full" style="background: \${categoryDef.color}"></div>
+            <span class="font-bold text-white text-sm">\${node.label}</span>
+            <span class="font-mono text-xs px-2 py-0.5 rounded-md ml-auto"
+              style="color: \${categoryDef.color}; background: \${categoryDef.color}15">
+              \${categoryDef.label}
+            </span>
+          </div>
+          <p class="text-slate-400 text-sm leading-relaxed mb-4">\${node.description}</p>
+          <div class="flex gap-6">
+            <div>
+              <span class="font-mono text-xs text-[#fbbf24] block mb-1">\u2191 Prerequisites (\${upstream.size})</span>
+              <div class="flex flex-wrap gap-1">
+                \${upstream.size === 0 ? html\`<span class="text-xs text-slate-600">None \u2014 starting concept</span>\` :
+                  [...upstream].map(id => {
+                    const n = nodes.find(n => n.id === id);
+                    return html\`<span class="font-mono text-xs px-2 py-0.5 rounded bg-[#fbbf24]/10 text-[#fbbf24]">\${n?.label}</span>\`;
+                  })
+                }
+              </div>
+            </div>
+            <div>
+              <span class="font-mono text-xs text-[#6ee7b7] block mb-1">\u2193 Dependents (\${downstream.size})</span>
+              <div class="flex flex-wrap gap-1">
+                \${downstream.size === 0 ? html\`<span class="text-xs text-slate-600">None \u2014 leaf concept</span>\` :
+                  [...downstream].map(id => {
+                    const n = nodes.find(n => n.id === id);
+                    return html\`<span class="font-mono text-xs px-2 py-0.5 rounded bg-[#6ee7b7]/10 text-[#6ee7b7]">\${n?.label}</span>\`;
+                  })
+                }
+              </div>
+            </div>
+          </div>
+        </div>
+      \`;
+    }
+
+    // --- Main Component ---
+    function ConceptMap({ nodes: nodeData, edges: edgeData, categories: cats }) {
+      const [selectedId, setSelectedId] = useState(null);
+
+      const nodeMap = useMemo(() => {
+        const map = {};
+        nodeData.forEach(n => { map[n.id] = n; });
+        return map;
+      }, [nodeData]);
+
+      const upstream = useMemo(() => selectedId ? getUpstream(selectedId, edgeData) : new Set(), [selectedId, edgeData]);
+      const downstream = useMemo(() => selectedId ? getDownstream(selectedId, edgeData) : new Set(), [selectedId, edgeData]);
+      const selectedNode = selectedId ? nodeMap[selectedId] : null;
+
+      const handleNodeClick = useCallback((id) => {
+        setSelectedId(prev => prev === id ? null : id);
+      }, []);
+
+      const handleBgClick = useCallback((e) => {
+        if (e.target.tagName === 'svg' || e.target.tagName === 'rect' && e.target.getAttribute('fill') === '#0a0e1a') {
+          setSelectedId(null);
+        }
+      }, []);
+
+      return html\`
+        <div class="max-w-5xl mx-auto px-8 pb-12">
+          <!-- Legend -->
+          <div class="flex items-center gap-6 mb-6 flex-wrap">
+            \${Object.entries(cats).map(([key, cat]) => html\`
+              <div class="flex items-center gap-2">
+                <div class="w-3 h-3 rounded-full" style="background: \${cat.color}"></div>
+                <span class="font-mono text-xs" style="color: \${cat.color}">\${cat.label}</span>
+              </div>
+            \`)}
+            <div class="flex items-center gap-4 ml-auto text-xs font-mono text-slate-600">
+              <span class="flex items-center gap-1.5">
+                <span class="w-3 h-0.5 bg-[#fbbf24] inline-block rounded"></span> upstream
+              </span>
+              <span class="flex items-center gap-1.5">
+                <span class="w-3 h-0.5 bg-[#6ee7b7] inline-block rounded"></span> downstream
+              </span>
+            </div>
+          </div>
+
+          <!-- Graph -->
+          <div class="bg-[#0d1320] border border-slate-800/60 rounded-2xl p-4 overflow-x-auto">
+            <svg viewBox="0 0 920 560" class="w-full" style="min-height: 420px" onClick=\${handleBgClick}>
+              <!-- Background click target -->
+              <rect width="920" height="560" fill="#0a0e1a" opacity="0.01" />
+
+              <!-- Grid -->
+              \${Array.from({ length: 19 }, (_, i) => html\`
+                <line x1=\${i * 50} y1="0" x2=\${i * 50} y2="560" stroke="#1e293b" stroke-width="0.5" opacity="0.2" />
+              \`)}
+              \${Array.from({ length: 12 }, (_, i) => html\`
+                <line x1="0" y1=\${i * 50} x2="920" y2=\${i * 50} stroke="#1e293b" stroke-width="0.5" opacity="0.2" />
+              \`)}
+
+              <!-- Column labels -->
+              <text x="155" y="30" fill="#475569" font-family="DM Mono" font-size="10" text-anchor="middle">Foundation</text>
+              <text x="365" y="30" fill="#475569" font-family="DM Mono" font-size="10" text-anchor="middle">Core</text>
+              <text x="575" y="30" fill="#475569" font-family="DM Mono" font-size="10" text-anchor="middle">Core</text>
+              <text x="785" y="30" fill="#475569" font-family="DM Mono" font-size="10" text-anchor="middle">Synthesis</text>
+
+              <!-- Edges first (under nodes) -->
+              \${edgeData.map(e => {
+                const eUpstream = upstream.has(e.from) && (upstream.has(e.to) || e.to === selectedId);
+                const eDownstream = downstream.has(e.to) && (downstream.has(e.from) || e.from === selectedId);
+                const isDimmed = selectedId && !eUpstream && !eDownstream && e.from !== selectedId && e.to !== selectedId;
+                return html\`
+                  <\${Edge}
+                    edge=\${e}
+                    nodeMap=\${nodeMap}
+                    selected=\${!!selectedId}
+                    isUpstream=\${eUpstream}
+                    isDownstream=\${eDownstream}
+                    dimmed=\${isDimmed} />
+                \`;
+              })}
+
+              <!-- Nodes -->
+              \${nodeData.map(n => {
+                const cat = cats[n.category];
+                const isSelf = n.id === selectedId;
+                const isUp = upstream.has(n.id);
+                const isDown = downstream.has(n.id);
+                const isDimmed = selectedId && !isSelf && !isUp && !isDown;
+                return html\`
+                  <\${Node}
+                    node=\${n}
+                    category=\${cat}
+                    selected=\${!!selectedId}
+                    isSelf=\${isSelf}
+                    isUpstream=\${isUp}
+                    isDownstream=\${isDown}
+                    dimmed=\${isDimmed}
+                    onClick=\${() => handleNodeClick(n.id)} />
+                \`;
+              })}
+            </svg>
+          </div>
+
+          <!-- Detail panel -->
+          \${selectedNode && html\`
+            <\${DetailPanel}
+              node=\${selectedNode}
+              upstream=\${upstream}
+              downstream=\${downstream}
+              categoryDef=\${cats[selectedNode.category]} />
+          \`}
+
+          <!-- Hint -->
+          \${!selectedId && html\`
+            <div class="mt-4 text-center">
+              <span class="font-mono text-xs text-slate-600">Click any concept to explore its dependency chain</span>
+            </div>
+          \`}
+        </div>
+      \`;
+    }
+
+    // --- Render ---
+    function App() {
+      return html\`<\${ConceptMap} nodes=\${nodes} edges=\${edges} categories=\${categories} />\`;
+    }
+
+    render(html\`<\${App} />\`, document.getElementById('app'));
+  </script>
+</body>
+</html>

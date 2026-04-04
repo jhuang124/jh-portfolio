@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>State Machine Navigator — Component Demo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['DM Sans', 'sans-serif'], mono: ['DM Mono', 'monospace'] } } }
+    }
+  </script>
+  <style>
+    .grain { background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); }
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 8px rgba(34,211,238,0.3), 0 0 20px rgba(34,211,238,0.1); }
+      50% { box-shadow: 0 0 16px rgba(34,211,238,0.5), 0 0 40px rgba(34,211,238,0.2); }
+    }
+    .state-active { animation: pulse-glow 2s ease-in-out infinite; }
+    @keyframes edgePulse {
+      0% { stroke-dashoffset: 20; }
+      100% { stroke-dashoffset: 0; }
+    }
+    .edge-animating { animation: edgePulse 0.5s linear forwards; }
+    .node-enter { animation: nodeEnter 0.4s cubic-bezier(.22,.68,0,.71) forwards; }
+    @keyframes nodeEnter { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+    .history-enter { animation: histEnter 0.3s cubic-bezier(.22,.68,0,.71) forwards; }
+    @keyframes histEnter { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
+  </style>
+</head>
+<body class="bg-[#0a0e1a] text-slate-200 font-sans grain min-h-screen">
+
+  <div class="max-w-5xl mx-auto px-8 pt-20 pb-8">
+    <div class="text-[#22d3ee] font-mono text-xs tracking-[0.25em] mb-3 uppercase">Component 07</div>
+    <h1 class="text-4xl font-bold text-white mb-3 tracking-tight">State Machine Navigator</h1>
+    <p class="text-slate-400 max-w-xl leading-relaxed">Navigate a skill lifecycle by clicking transitions. The current state pulses. Invalid paths are dimmed. Your history trail builds as you explore.</p>
+  </div>
+
+  <div id="app"></div>
+
+  <div class="max-w-5xl mx-auto px-8 py-20">
+    <div class="border-t border-slate-800 pt-12">
+      <h2 class="text-lg font-bold text-white mb-6">Usage</h2>
+      <pre class="bg-[#0d1320] rounded-xl p-6 font-mono text-sm text-slate-300 border border-slate-800/60 overflow-x-auto"><code>const machine = {
+  states: {
+    idle: { label: "Idle", x: 100, y: 200, description: "..." },
+    // ...
+  },
+  transitions: [
+    { from: "idle", to: "active", label: "start", description: "..." },
+    // ...
+  ],
+  initial: "idle"
+};
+
+html\`&lt;\${StateMachineNavigator} machine=\${machine} />\`</code></pre>
+    </div>
+  </div>
+
+  <script type="module">
+    import { h, render } from 'https://esm.sh/preact@10';
+    import { useState, useEffect, useRef, useCallback, useMemo } from 'https://esm.sh/preact@10/hooks';
+    import htm from 'https://esm.sh/htm@3';
+    const html = htm.bind(h);
+
+    // ── Reusable Component ──────────────────────────────────
+
+    function StateMachineNavigator({ machine }) {
+      const [currentState, setCurrentState] = useState(machine.initial);
+      const [history, setHistory] = useState([machine.initial]);
+      const [animatingEdge, setAnimatingEdge] = useState(null);
+      const [prediction, setPrediction] = useState(null);
+      const [predictionResult, setPredictionResult] = useState(null);
+      const svgRef = useRef(null);
+
+      const validTransitions = useMemo(() => {
+        return machine.transitions.filter(t => t.from === currentState);
+      }, [currentState, machine.transitions]);
+
+      const handleTransition = useCallback((transition) => {
+        if (transition.from !== currentState) return;
+
+        // Check prediction
+        if (prediction) {
+          setPredictionResult(prediction === transition.to ? 'correct' : 'wrong');
+          setTimeout(() => setPredictionResult(null), 1500);
+        }
+        setPrediction(null);
+
+        setAnimatingEdge(`${transition.from}-${transition.to}`);
+        setTimeout(() => {
+          setCurrentState(transition.to);
+          setHistory(prev => [...prev, transition.to]);
+          setAnimatingEdge(null);
+        }, 400);
+      }, [currentState, prediction]);
+
+      const handlePredict = useCallback((stateId) => {
+        if (stateId === currentState) return;
+        setPrediction(prev => prev === stateId ? null : stateId);
+        setPredictionResult(null);
+      }, [currentState]);
+
+      const handleReset = useCallback(() => {
+        setCurrentState(machine.initial);
+        setHistory([machine.initial]);
+        setAnimatingEdge(null);
+        setPrediction(null);
+        setPredictionResult(null);
+      }, [machine.initial]);
+
+      const stateEntries = Object.entries(machine.states);
+
+      // Compute edge paths
+      function getEdgePath(from, to) {
+        const s = machine.states[from];
+        const e = machine.states[to];
+        if (!s || !e) return '';
+        const dx = e.x - s.x;
+        const dy = e.y - s.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        // offset start/end by node radius
+        const r = 44;
+        const sx = s.x + (dx/dist) * r;
+        const sy = s.y + (dy/dist) * r;
+        const ex = e.x - (dx/dist) * r;
+        const ey = e.y - (dy/dist) * r;
+        // curve
+        const mx = (sx + ex) / 2 + dy * 0.15;
+        const my = (sy + ey) / 2 - dx * 0.15;
+        return { path: `M${sx},${sy} Q${mx},${my} ${ex},${ey}`, mx, my, sx, sy, ex, ey };
+      }
+
+      return html`
+        <div class="max-w-5xl mx-auto px-8 pb-12">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- SVG canvas -->
+            <div class="lg:col-span-2 bg-[#0d1320] rounded-xl border border-slate-800/60 p-4 relative" style="min-height: 420px;">
+              <svg ref=${svgRef} viewBox="0 0 700 400" class="w-full h-full" style="min-height: 380px;">
+                <defs>
+                  <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                    <path d="M0,0 L8,3 L0,6" fill="#475569" />
+                  </marker>
+                  <marker id="arrowhead-active" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                    <path d="M0,0 L8,3 L0,6" fill="#22d3ee" />
+                  </marker>
+                  <marker id="arrowhead-dim" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                    <path d="M0,0 L8,3 L0,6" fill="#1e293b" />
+                  </marker>
+                </defs>
+
+                <!-- Edges -->
+                ${machine.transitions.map(t => {
+                  const edge = getEdgePath(t.from, t.to);
+                  if (!edge.path) return null;
+                  const isValid = t.from === currentState;
+                  const isAnimating = animatingEdge === `${t.from}-${t.to}`;
+                  const marker = isValid ? 'url(#arrowhead-active)' : 'url(#arrowhead-dim)';
+                  const strokeColor = isAnimating ? '#22d3ee' : isValid ? '#475569' : '#1e293b';
+                  const strokeW = isValid ? 2 : 1;
+
+                  return html`
+                    <g key=${`${t.from}-${t.to}`}>
+                      <path
+                        d=${edge.path}
+                        fill="none"
+                        stroke=${strokeColor}
+                        stroke-width=${strokeW}
+                        marker-end=${marker}
+                        class=${isAnimating ? 'edge-animating' : ''}
+                        stroke-dasharray=${isAnimating ? '8 4' : 'none'}
+                        style=${{ cursor: isValid ? 'pointer' : 'default', transition: 'stroke 0.3s' }}
+                      />
+                      <!-- Clickable hit area -->
+                      ${isValid && html`
+                        <path
+                          d=${edge.path}
+                          fill="none"
+                          stroke="transparent"
+                          stroke-width="20"
+                          style="cursor: pointer;"
+                          onClick=${() => handleTransition(t)}
+                        />
+                      `}
+                      <!-- Edge label -->
+                      <text
+                        x=${edge.mx} y=${edge.my - 8}
+                        text-anchor="middle"
+                        fill=${isValid ? '#94a3b8' : '#334155'}
+                        font-size="11"
+                        font-family="DM Mono, monospace"
+                        style=${{ cursor: isValid ? 'pointer' : 'default' }}
+                        onClick=${isValid ? () => handleTransition(t) : undefined}
+                      >${t.label}</text>
+                    </g>
+                  `;
+                })}
+
+                <!-- State nodes -->
+                ${stateEntries.map(([id, state]) => {
+                  const isCurrent = id === currentState;
+                  const isPredicted = id === prediction;
+                  const isTarget = validTransitions.some(t => t.to === id);
+
+                  return html`
+                    <g key=${id} class="node-enter" style="cursor: pointer;" onClick=${() => handlePredict(id)}>
+                      <!-- Glow circle for active -->
+                      ${isCurrent && html`
+                        <circle cx=${state.x} cy=${state.y} r="48" fill="none" stroke="#22d3ee" stroke-width="1" opacity="0.3" class="state-active" />
+                      `}
+                      <!-- Prediction ring -->
+                      ${isPredicted && html`
+                        <circle cx=${state.x} cy=${state.y} r="50"
+                          fill="none"
+                          stroke=${predictionResult === 'correct' ? '#4ade80' : predictionResult === 'wrong' ? '#f87171' : '#fbbf24'}
+                          stroke-width="2"
+                          stroke-dasharray="6 3"
+                        />
+                      `}
+                      <!-- Main circle -->
+                      <circle
+                        cx=${state.x} cy=${state.y} r="40"
+                        fill=${isCurrent ? '#0d2a33' : '#0d1320'}
+                        stroke=${isCurrent ? '#22d3ee' : isTarget ? '#334155' : '#1e293b'}
+                        stroke-width=${isCurrent ? 2.5 : 1.5}
+                      />
+                      <text
+                        x=${state.x} y=${state.y + 1}
+                        text-anchor="middle" dominant-baseline="middle"
+                        fill=${isCurrent ? '#22d3ee' : '#94a3b8'}
+                        font-size="12"
+                        font-family="DM Mono, monospace"
+                        font-weight=${isCurrent ? '500' : '400'}
+                      >${state.label}</text>
+                    </g>
+                  `;
+                })}
+              </svg>
+
+              <!-- State description overlay -->
+              <div class="absolute bottom-4 left-4 right-4">
+                <div class="bg-[#0a0e1a]/90 backdrop-blur rounded-lg border border-slate-800/40 px-4 py-3">
+                  <div class="font-mono text-xs text-[#22d3ee] mb-1">${machine.states[currentState]?.label}</div>
+                  <div class="text-sm text-slate-400">${machine.states[currentState]?.description}</div>
+                  ${validTransitions.length > 0 && html`
+                    <div class="mt-2 flex flex-wrap gap-2">
+                      ${validTransitions.map(t => html`
+                        <button
+                          key=${t.to}
+                          onClick=${() => handleTransition(t)}
+                          class="px-3 py-1 rounded-md bg-slate-800/60 border border-slate-700/40 text-xs font-mono text-slate-300 hover:border-[#22d3ee]/50 hover:text-[#22d3ee] transition-all"
+                        >${t.label} -> ${machine.states[t.to]?.label}</button>
+                      `)}
+                    </div>
+                  `}
+                  ${validTransitions.length === 0 && html`
+                    <div class="mt-2 text-xs text-slate-500 font-mono">Terminal state. Click Reset to start over.</div>
+                  `}
+                </div>
+              </div>
+
+              <!-- Prediction feedback -->
+              ${predictionResult && html`
+                <div class="absolute top-4 right-4 px-3 py-2 rounded-lg font-mono text-xs ${
+                  predictionResult === 'correct' ? 'bg-green-900/40 text-green-400 border border-green-800/40' : 'bg-red-900/40 text-red-400 border border-red-800/40'
+                }">
+                  ${predictionResult === 'correct' ? 'Correct prediction' : 'Not quite -- try again'}
+                </div>
+              `}
+            </div>
+
+            <!-- History sidebar -->
+            <div class="bg-[#0d1320] rounded-xl border border-slate-800/60 p-5 flex flex-col">
+              <div class="flex items-center justify-between mb-4">
+                <div class="font-mono text-xs text-slate-500 tracking-wide uppercase">History Trail</div>
+                <button onClick=${handleReset} class="font-mono text-xs text-[#22d3ee]/60 hover:text-[#22d3ee] transition-colors">Reset</button>
+              </div>
+
+              <div class="flex-1 space-y-2 overflow-y-auto" style="max-height: 340px;">
+                ${history.map((stateId, i) => html`
+                  <div key=${i} class="history-enter flex items-center gap-3">
+                    <div class="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center font-mono text-xs ${
+                      i === history.length - 1 ? 'bg-[#22d3ee]/20 text-[#22d3ee]' : 'bg-slate-800 text-slate-500'
+                    }">${i + 1}</div>
+                    <div class="text-sm ${i === history.length - 1 ? 'text-white font-medium' : 'text-slate-400'}">
+                      ${machine.states[stateId]?.label}
+                    </div>
+                  </div>
+                `)}
+              </div>
+
+              <div class="mt-4 pt-4 border-t border-slate-800/40">
+                <div class="font-mono text-xs text-slate-500 mb-2">How to use</div>
+                <div class="text-xs text-slate-500 space-y-1">
+                  <div>Click a node to predict the next state</div>
+                  <div>Click a transition button or edge to navigate</div>
+                  <div>Track your exploration in the history trail</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ── Demo Data ──────────────────────────────────────────
+
+    const demoMachine = {
+      initial: 'discovery',
+      states: {
+        discovery: {
+          label: 'Discovery',
+          x: 100, y: 90,
+          description: 'Claude scans the user message for intent. It checks all loaded skill descriptions looking for trigger phrase matches.'
+        },
+        selection: {
+          label: 'Selection',
+          x: 310, y: 90,
+          description: 'A matching skill is found. Claude evaluates the match confidence and checks for allowed-tools compatibility before proceeding.'
+        },
+        loading: {
+          label: 'Loading',
+          x: 520, y: 90,
+          description: 'The SKILL.md body and referenced files are loaded into context. This is progressive -- frontmatter first, then instructions, then references on demand.'
+        },
+        execution: {
+          label: 'Execution',
+          x: 520, y: 280,
+          description: 'Claude follows the skill instructions step by step, using only the allowed tools. Each action is validated against the tool allowlist.'
+        },
+        revert: {
+          label: 'Revert',
+          x: 310, y: 280,
+          description: 'The skill run is complete. Claude exits skill context, unloads references, and returns to normal operation. The conversation continues.'
+        },
+        error: {
+          label: 'Error',
+          x: 100, y: 280,
+          description: 'Something failed -- a tool was blocked, a file was missing, or an instruction was ambiguous. Claude reports the error and suggests a fix.'
+        }
+      },
+      transitions: [
+        { from: 'discovery', to: 'selection', label: 'match found', description: 'A skill description matched the user intent' },
+        { from: 'selection', to: 'loading', label: 'confirmed', description: 'The match is confident enough to proceed' },
+        { from: 'selection', to: 'discovery', label: 'no match', description: 'Confidence too low, returns to scanning' },
+        { from: 'loading', to: 'execution', label: 'loaded', description: 'All required context is in memory' },
+        { from: 'loading', to: 'error', label: 'load error', description: 'Referenced file missing or malformed SKILL.md' },
+        { from: 'execution', to: 'revert', label: 'complete', description: 'All steps executed successfully' },
+        { from: 'execution', to: 'error', label: 'tool blocked', description: 'Skill tried to use a tool not in allowed-tools' },
+        { from: 'error', to: 'discovery', label: 'retry', description: 'User wants to try again from scratch' },
+        { from: 'revert', to: 'discovery', label: 'new intent', description: 'User has a new request, cycle restarts' }
+      ]
+    };
+
+    // ── App ────────────────────────────────────────────────
+
+    function App() {
+      return html`<${StateMachineNavigator} machine=${demoMachine} />`;
+    }
+
+    render(html`<${App} />`, document.getElementById('app'));
+  </script>
+</body>
+</html>

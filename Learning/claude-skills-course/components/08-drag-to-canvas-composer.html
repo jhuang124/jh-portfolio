@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Drag-to-Canvas Composer — Component Demo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['DM Sans', 'sans-serif'], mono: ['DM Mono', 'monospace'] } } }
+    }
+  </script>
+  <style>
+    .grain { background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-3px)} 75%{transform:translateX(3px)} }
+    .shake { animation: shake 0.3s ease-in-out; }
+    @keyframes dropIn { from{opacity:0;transform:scale(0.85)} to{opacity:1;transform:scale(1)} }
+    .drop-in { animation: dropIn 0.3s cubic-bezier(.22,.68,0,.71) forwards; }
+    @keyframes connectionDraw { from{stroke-dashoffset:100} to{stroke-dashoffset:0} }
+    .connection-draw { stroke-dasharray: 100; animation: connectionDraw 0.8s cubic-bezier(.22,.68,0,.71) forwards; }
+    @keyframes completePulse { 0%,100%{box-shadow:0 0 0 0 rgba(74,222,128,0)} 50%{box-shadow:0 0 0 8px rgba(74,222,128,0.15)} }
+    .complete-pulse { animation: completePulse 1.5s ease-in-out infinite; }
+    .palette-block { cursor: grab; user-select: none; transition: all 0.2s cubic-bezier(.22,.68,0,.71); }
+    .palette-block:hover { transform: translateY(-2px); }
+    .palette-block.selected { box-shadow: 0 0 0 2px #4ade80; transform: translateY(-2px); }
+    .palette-block.used { opacity: 0.35; cursor: default; }
+    .canvas-slot { transition: all 0.25s cubic-bezier(.22,.68,0,.71); }
+    .canvas-slot.highlight { border-color: #4ade80 !important; background: rgba(74,222,128,0.06) !important; }
+    .canvas-slot.invalid { border-color: #f87171 !important; background: rgba(248,113,113,0.06) !important; }
+    .canvas-slot.filled { border-color: #4ade80 !important; }
+  </style>
+</head>
+<body class="bg-[#0a0e1a] text-slate-200 font-sans grain min-h-screen">
+
+  <div class="max-w-5xl mx-auto px-8 pt-20 pb-8">
+    <div class="text-[#4ade80] font-mono text-xs tracking-[0.25em] mb-3 uppercase">Component 08</div>
+    <h1 class="text-4xl font-bold text-white mb-3 tracking-tight">Drag-to-Canvas Composer</h1>
+    <p class="text-slate-400 max-w-xl leading-relaxed">Click blocks from the palette, then click a canvas slot to place them. Build a skill directory structure by snapping blocks into the right positions.</p>
+  </div>
+
+  <div id="app"></div>
+
+  <div class="max-w-5xl mx-auto px-8 py-20">
+    <div class="border-t border-slate-800 pt-12">
+      <h2 class="text-lg font-bold text-white mb-6">Usage</h2>
+      <pre class="bg-[#0d1320] rounded-xl p-6 font-mono text-sm text-slate-300 border border-slate-800/60 overflow-x-auto"><code>const composerData = {
+  blocks: [
+    { id: "file1", label: "file.md", category: "file", icon: "doc" },
+    // ...
+  ],
+  slots: [
+    { id: "slot1", label: "Root config", accepts: ["file1","file2"], group: "structure" },
+    // ...
+  ],
+  connections: [
+    { from: "slot1", to: "slot2" }
+  ]
+};
+
+html\`&lt;\${DragToCanvasComposer} data=\${composerData} />\`</code></pre>
+    </div>
+  </div>
+
+  <script type="module">
+    import { h, render } from 'https://esm.sh/preact@10';
+    import { useState, useEffect, useRef, useCallback, useMemo } from 'https://esm.sh/preact@10/hooks';
+    import htm from 'https://esm.sh/htm@3';
+    const html = htm.bind(h);
+
+    // ── Icons ───────────────────────────────────────────────
+
+    function FileIcon({ color = '#4ade80' }) {
+      return html`<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 1h5.5L12 4.5V12a1 1 0 01-1 1H3a1 1 0 01-1-1V2a1 1 0 011-1z" stroke="${color}" stroke-width="1.2"/><path d="M8 1v4h4" stroke="${color}" stroke-width="1.2"/></svg>`;
+    }
+    function FolderIcon({ color = '#4ade80' }) {
+      return html`<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 3.5V11a1.5 1.5 0 001.5 1.5h9A1.5 1.5 0 0013 11V5.5A1.5 1.5 0 0011.5 4H7L5.5 2H2.5A1.5 1.5 0 001 3.5z" stroke="${color}" stroke-width="1.2"/></svg>`;
+    }
+    function FieldIcon({ color = '#4ade80' }) {
+      return html`<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="3" width="12" height="8" rx="1.5" stroke="${color}" stroke-width="1.2"/><path d="M4 7h6" stroke="${color}" stroke-width="1.2" stroke-linecap="round"/></svg>`;
+    }
+
+    // ── Reusable Component ──────────────────────────────────
+
+    function DragToCanvasComposer({ data }) {
+      const [selected, setSelected] = useState(null);
+      const [placements, setPlacements] = useState({}); // slotId -> blockId
+      const [invalidSlot, setInvalidSlot] = useState(null);
+      const [invalidMsg, setInvalidMsg] = useState('');
+      const [highlightSlot, setHighlightSlot] = useState(null);
+      const [isComplete, setIsComplete] = useState(false);
+
+      const usedBlocks = useMemo(() => new Set(Object.values(placements)), [placements]);
+
+      const completionPct = useMemo(() => {
+        const filled = Object.keys(placements).length;
+        const total = data.slots.length;
+        return Math.round((filled / total) * 100);
+      }, [placements, data.slots]);
+
+      useEffect(() => {
+        if (Object.keys(placements).length === data.slots.length) {
+          setIsComplete(true);
+        }
+      }, [placements, data.slots]);
+
+      const handleSelectBlock = useCallback((blockId) => {
+        if (usedBlocks.has(blockId)) return;
+        setSelected(prev => prev === blockId ? null : blockId);
+        setInvalidSlot(null);
+        setInvalidMsg('');
+      }, [usedBlocks]);
+
+      const handleClickSlot = useCallback((slotId) => {
+        if (!selected) return;
+        if (placements[slotId]) return; // already filled
+
+        const slot = data.slots.find(s => s.id === slotId);
+        if (!slot) return;
+
+        if (slot.accepts.includes(selected)) {
+          // Valid placement
+          setPlacements(prev => ({ ...prev, [slotId]: selected }));
+          setSelected(null);
+          setHighlightSlot(slotId);
+          setTimeout(() => setHighlightSlot(null), 600);
+        } else {
+          // Invalid
+          setInvalidSlot(slotId);
+          const block = data.blocks.find(b => b.id === selected);
+          setInvalidMsg(`${block?.label} doesn't go here. ${slot.hint || 'Try a different slot.'}`);
+          setTimeout(() => { setInvalidSlot(null); setInvalidMsg(''); }, 2000);
+        }
+      }, [selected, placements, data]);
+
+      const handleRemove = useCallback((slotId) => {
+        setPlacements(prev => {
+          const next = { ...prev };
+          delete next[slotId];
+          return next;
+        });
+        setIsComplete(false);
+      }, []);
+
+      const handleReset = useCallback(() => {
+        setPlacements({});
+        setSelected(null);
+        setIsComplete(false);
+        setInvalidSlot(null);
+        setInvalidMsg('');
+      }, []);
+
+      const getIcon = (cat) => {
+        if (cat === 'folder') return html`<${FolderIcon} />`;
+        if (cat === 'field') return html`<${FieldIcon} />`;
+        return html`<${FileIcon} />`;
+      };
+
+      // Group slots
+      const groups = useMemo(() => {
+        const map = {};
+        data.slots.forEach(s => {
+          if (!map[s.group]) map[s.group] = [];
+          map[s.group].push(s);
+        });
+        return map;
+      }, [data.slots]);
+
+      return html`
+        <div class="max-w-5xl mx-auto px-8 pb-12">
+          <!-- Progress bar -->
+          <div class="mb-6">
+            <div class="flex items-center justify-between mb-2">
+              <span class="font-mono text-xs text-slate-500">${completionPct}% complete</span>
+              <button onClick=${handleReset} class="font-mono text-xs text-[#4ade80]/60 hover:text-[#4ade80] transition-colors">Reset</button>
+            </div>
+            <div class="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+              <div class="h-full rounded-full bg-[#4ade80] transition-all duration-500" style=${{ width: `${completionPct}%` }}></div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Palette -->
+            <div class="bg-[#0d1320] rounded-xl border border-slate-800/60 p-5">
+              <div class="font-mono text-xs text-slate-500 tracking-wide uppercase mb-4">Block Palette</div>
+              <div class="space-y-2">
+                ${data.blocks.map(block => {
+                  const isUsed = usedBlocks.has(block.id);
+                  const isSel = selected === block.id;
+                  return html`
+                    <div
+                      key=${block.id}
+                      onClick=${() => handleSelectBlock(block.id)}
+                      class="palette-block flex items-center gap-2.5 px-3 py-2.5 rounded-lg border ${
+                        isSel ? 'selected border-[#4ade80]/60 bg-[#4ade80]/5' :
+                        isUsed ? 'used border-slate-800/30 bg-slate-900/30' :
+                        'border-slate-800/40 bg-[#0a0e1a] hover:border-slate-700'
+                      }"
+                    >
+                      <div class="flex-shrink-0 opacity-60">${getIcon(block.category)}</div>
+                      <span class="font-mono text-xs ${isUsed ? 'text-slate-600 line-through' : 'text-slate-300'}">${block.label}</span>
+                      ${isUsed && html`<span class="ml-auto font-mono text-[10px] text-green-600">placed</span>`}
+                    </div>
+                  `;
+                })}
+              </div>
+              ${selected && html`
+                <div class="mt-4 pt-4 border-t border-slate-800/40">
+                  <div class="text-xs text-[#4ade80] font-mono">Selected: ${data.blocks.find(b => b.id === selected)?.label}</div>
+                  <div class="text-xs text-slate-500 mt-1">Click a slot on the canvas to place it</div>
+                </div>
+              `}
+            </div>
+
+            <!-- Canvas -->
+            <div class="lg:col-span-2 space-y-6">
+              ${Object.entries(groups).map(([groupName, slots]) => html`
+                <div key=${groupName} class="bg-[#0d1320] rounded-xl border border-slate-800/60 p-5 ${isComplete ? 'complete-pulse' : ''}">
+                  <div class="font-mono text-xs text-slate-500 tracking-wide uppercase mb-4">${groupName}</div>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    ${slots.map(slot => {
+                      const filled = placements[slot.id];
+                      const block = filled ? data.blocks.find(b => b.id === filled) : null;
+                      const isInvalid = invalidSlot === slot.id;
+                      const isHighlight = highlightSlot === slot.id;
+                      const canPlace = selected && !filled;
+
+                      return html`
+                        <div
+                          key=${slot.id}
+                          onClick=${() => filled ? null : handleClickSlot(slot.id)}
+                          class="canvas-slot rounded-lg border-2 border-dashed px-4 py-3 min-h-[56px] flex items-center gap-3 ${
+                            filled ? 'filled border-solid bg-[#4ade80]/5' :
+                            isInvalid ? 'invalid shake' :
+                            isHighlight ? 'highlight' :
+                            canPlace ? 'border-slate-700/60 bg-slate-900/20 cursor-pointer hover:border-[#4ade80]/40' :
+                            'border-slate-800/30 bg-slate-900/10'
+                          }"
+                        >
+                          ${filled ? html`
+                            <div class="drop-in flex items-center gap-2.5 flex-1">
+                              <div class="flex-shrink-0 opacity-60">${getIcon(block.category)}</div>
+                              <span class="font-mono text-xs text-[#4ade80]">${block.label}</span>
+                              <button
+                                onClick=${(e) => { e.stopPropagation(); handleRemove(slot.id); }}
+                                class="ml-auto text-slate-600 hover:text-red-400 transition-colors"
+                              >
+                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 3l6 6M9 3L3 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                              </button>
+                            </div>
+                          ` : html`
+                            <div class="flex items-center gap-2 flex-1">
+                              <div class="w-4 h-4 rounded border border-slate-700/40 flex items-center justify-center">
+                                ${canPlace && html`<div class="w-1.5 h-1.5 rounded-full bg-[#4ade80]/40"></div>`}
+                              </div>
+                              <span class="font-mono text-xs text-slate-600">${slot.label}</span>
+                            </div>
+                          `}
+                        </div>
+                      `;
+                    })}
+                  </div>
+                </div>
+              `)}
+
+              <!-- Invalid message -->
+              ${invalidMsg && html`
+                <div class="flex items-center gap-2 px-4 py-3 rounded-lg bg-red-900/20 border border-red-900/30">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="#f87171" stroke-width="1.2"/><path d="M7 4v3M7 9v.5" stroke="#f87171" stroke-width="1.5" stroke-linecap="round"/></svg>
+                  <span class="text-xs text-red-300">${invalidMsg}</span>
+                </div>
+              `}
+
+              <!-- Completion message -->
+              ${isComplete && html`
+                <div class="flex items-center gap-3 px-5 py-4 rounded-lg bg-[#4ade80]/10 border border-[#4ade80]/20">
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="#4ade80" stroke-width="1.5"/><path d="M6 10l3 3 5-6" stroke="#4ade80" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  <div>
+                    <div class="text-sm font-medium text-[#4ade80]">Skill directory assembled</div>
+                    <div class="text-xs text-slate-400 mt-0.5">Every block is in the right slot. This is the canonical layout for a Claude skill.</div>
+                  </div>
+                </div>
+              `}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ── Demo Data ──────────────────────────────────────────
+
+    const demoData = {
+      blocks: [
+        { id: 'skill-md', label: 'SKILL.md', category: 'file' },
+        { id: 'scripts-dir', label: 'scripts/', category: 'folder' },
+        { id: 'references-dir', label: 'references/', category: 'folder' },
+        { id: 'assets-dir', label: 'assets/', category: 'folder' },
+        { id: 'name-field', label: 'name: deploy', category: 'field' },
+        { id: 'desc-field', label: 'description: "Use when..."', category: 'field' },
+        { id: 'tools-field', label: 'allowed-tools: Read Bash(...)', category: 'field' },
+        { id: 'instructions', label: '# Instructions', category: 'field' },
+        { id: 'api-guide', label: 'api-guide.md', category: 'file' },
+        { id: 'validate-py', label: 'validate.py', category: 'file' },
+      ],
+      slots: [
+        // Directory structure slots
+        { id: 'root-file', label: 'Root config file', accepts: ['skill-md'], group: 'Directory Layout', hint: 'The root must be SKILL.md -- the skill manifest.' },
+        { id: 'dir-scripts', label: 'Executable code folder', accepts: ['scripts-dir'], group: 'Directory Layout', hint: 'This slot is for the scripts/ folder.' },
+        { id: 'dir-refs', label: 'Documentation folder', accepts: ['references-dir'], group: 'Directory Layout', hint: 'This holds reference docs. Try references/.' },
+        { id: 'dir-assets', label: 'Static resources folder', accepts: ['assets-dir'], group: 'Directory Layout', hint: 'This is for static files. Try assets/.' },
+
+        // SKILL.md internal structure
+        { id: 'field-name', label: 'Identity (first line)', accepts: ['name-field'], group: 'SKILL.md Frontmatter', hint: 'Skills start with a name field.' },
+        { id: 'field-desc', label: 'Trigger definition', accepts: ['desc-field'], group: 'SKILL.md Frontmatter', hint: 'This slot defines WHEN the skill activates.' },
+        { id: 'field-tools', label: 'Tool allowlist', accepts: ['tools-field'], group: 'SKILL.md Frontmatter', hint: 'This restricts which tools the skill can use.' },
+        { id: 'field-instr', label: 'Execution body', accepts: ['instructions'], group: 'SKILL.md Body', hint: 'The instructions section tells Claude what to DO.' },
+
+        // Reference files
+        { id: 'ref-api', label: 'API documentation', accepts: ['api-guide'], group: 'Reference Files', hint: 'Documentation files go in references/.' },
+        { id: 'ref-script', label: 'Validation script', accepts: ['validate-py'], group: 'Reference Files', hint: 'Scripts go in the scripts/ folder placement.' },
+      ],
+      connections: [
+        { from: 'root-file', to: 'field-name' },
+        { from: 'field-desc', to: 'field-tools' },
+        { from: 'field-instr', to: 'ref-api' },
+        { from: 'dir-scripts', to: 'ref-script' },
+      ]
+    };
+
+    // ── App ────────────────────────────────────────────────
+
+    function App() {
+      return html`<${DragToCanvasComposer} data=${demoData} />`;
+    }
+
+    render(html`<${App} />`, document.getElementById('app'));
+  </script>
+</body>
+</html>

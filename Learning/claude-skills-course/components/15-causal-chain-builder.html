@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Causal Chain Builder — Component Demo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['DM Sans', 'sans-serif'], mono: ['DM Mono', 'monospace'] } } }
+    }
+  </script>
+  <style>
+    .grain { background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); }
+    @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeSlideRight { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }
+    @keyframes pulseArrow { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+    @keyframes branchGrow { from { opacity: 0; max-height: 0; } to { opacity: 1; max-height: 400px; } }
+    .fade-slide-in { animation: fadeSlideIn 0.4s cubic-bezier(.22,.68,0,.71) forwards; }
+    .fade-slide-right { animation: fadeSlideRight 0.4s cubic-bezier(.22,.68,0,.71) forwards; }
+    .pulse-arrow { animation: pulseArrow 1.5s ease-in-out infinite; }
+    .branch-grow { animation: branchGrow 0.5s cubic-bezier(.22,.68,0,.71) forwards; overflow: hidden; }
+    .chain-connector { position: relative; }
+    .chain-connector::before {
+      content: '';
+      position: absolute;
+      left: 18px;
+      top: -16px;
+      width: 2px;
+      height: 16px;
+      background: #334155;
+    }
+  </style>
+</head>
+<body class="bg-[#0a0e1a] text-slate-200 font-sans grain min-h-screen">
+
+  <div class="max-w-5xl mx-auto px-8 pt-20 pb-8">
+    <div class="text-[#fb923c] font-mono text-xs tracking-[0.25em] mb-3 uppercase">Component 15</div>
+    <h1 class="text-4xl font-bold text-white mb-3 tracking-tight">Causal Chain Builder</h1>
+    <p class="text-slate-400 max-w-xl leading-relaxed">Trace the consequences of a vague skill description. At each step, choose what happens next. Watch the chain of failure grow -- and discover where branching paths diverge.</p>
+  </div>
+
+  <div id="app"></div>
+
+  <div class="max-w-5xl mx-auto px-8 py-20">
+    <div class="border-t border-slate-800 pt-12">
+      <h2 class="text-lg font-bold text-white mb-6">Usage</h2>
+      <pre class="bg-[#0d1320] rounded-xl p-6 font-mono text-sm text-slate-300 border border-slate-800/60 overflow-x-auto"><code>const chainData = {
+  root: { text: 'Starting event', reason: null },
+  steps: [
+    {
+      id: 's1',
+      options: [
+        { id: 'a', text: 'Effect A', reason: 'because...', correct: true, next: 's2' },
+        { id: 'b', text: 'Effect B', reason: 'because...', correct: false },
+      ]
+    },
+    // ...
+  ]
+};
+
+html`&lt;${CausalChainBuilder} data=${chainData} />`</code></pre>
+    </div>
+  </div>
+
+  <script type="module">
+    import { h, render } from 'https://esm.sh/preact@10';
+    import { useState, useEffect, useRef, useCallback, useMemo } from 'https://esm.sh/preact@10/hooks';
+    import htm from 'https://esm.sh/htm@3';
+    const html = htm.bind(h);
+
+    // ── The Reusable Component ──────────────────────────────
+
+    function ChainLink({ text, reason, index, isRoot, isActive, isBranch, branchColor }) {
+      const color = branchColor || '#fb923c';
+      return html`
+        <div class="fade-slide-right ${!isRoot ? 'chain-connector' : ''}" style="animation-delay: ${index * 0.08}s">
+          <div class="flex items-start gap-3">
+            <!-- Node marker -->
+            <div class="flex flex-col items-center flex-shrink-0 mt-1">
+              <div class="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold font-mono transition-all duration-300
+                ${isActive ? 'ring-2 ring-offset-2 ring-offset-[#0d1320]' : ''}
+                ${isRoot ? 'bg-[#fb923c]/20 text-[#fb923c] ring-[#fb923c]/40' :
+                  isBranch ? 'bg-sky-500/20 text-sky-400 ring-sky-400/40' :
+                  'bg-[#fb923c]/20 text-[#fb923c] ring-[#fb923c]/40'}"
+                style="${isActive ? `box-shadow: 0 0 16px ${color}30` : ''}">
+                ${isRoot ? html`<svg class="w-4 h-4" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3" fill="currentColor"/></svg>` : index}
+              </div>
+            </div>
+
+            <!-- Content -->
+            <div class="flex-1 min-w-0 pb-2">
+              <div class="bg-[#0d1320] rounded-lg border transition-all duration-300 p-4
+                ${isActive ? 'border-[' + color + ']/40 shadow-lg' : 'border-slate-800/60'}"
+                style="${isActive ? `box-shadow: 0 0 20px ${color}10` : ''}">
+                <p class="text-sm text-slate-200 leading-relaxed">${text}</p>
+                ${reason && html`
+                  <div class="mt-2 flex items-start gap-1.5">
+                    <span class="font-mono text-xs text-slate-600 flex-shrink-0 mt-px">because</span>
+                    <span class="text-xs text-slate-500 italic leading-relaxed">${reason}</span>
+                  </div>
+                `}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function OptionSelector({ options, onSelect, stepIndex }) {
+      const [hoveredId, setHoveredId] = useState(null);
+
+      return html`
+        <div class="ml-12 fade-slide-in">
+          <div class="flex items-center gap-2 mb-3">
+            <svg class="w-4 h-4 text-[#fb923c] pulse-arrow" viewBox="0 0 16 16" fill="none">
+              <path d="M3 8H13M13 8L9 4M13 8L9 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span class="font-mono text-xs text-[#fb923c]">What happens next?</span>
+          </div>
+          <div class="space-y-2">
+            ${options.map(opt => html`
+              <button
+                key=${opt.id}
+                onClick=${() => onSelect(opt)}
+                onMouseEnter=${() => setHoveredId(opt.id)}
+                onMouseLeave=${() => setHoveredId(null)}
+                class="w-full text-left px-4 py-3 rounded-lg border transition-all duration-200
+                  ${hoveredId === opt.id ?
+                    'bg-[#fb923c]/10 border-[#fb923c]/40 text-white' :
+                    'bg-[#0a0e1a] border-slate-800/40 text-slate-400 hover:text-slate-200'}">
+                <span class="text-sm leading-relaxed">${opt.text}</span>
+              </button>
+            `)}
+          </div>
+        </div>
+      `;
+    }
+
+    function CausalChainBuilder({ data }) {
+      const [chain, setChain] = useState([]);
+      const [branches, setBranches] = useState([]);
+      const [currentStepIdx, setCurrentStepIdx] = useState(0);
+      const [isComplete, setIsComplete] = useState(false);
+      const [wrongPick, setWrongPick] = useState(null);
+      const chainEndRef = useRef(null);
+
+      const currentStep = data.steps[currentStepIdx] || null;
+
+      useEffect(() => {
+        if (chainEndRef.current) {
+          chainEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }, [chain.length, branches.length]);
+
+      const handleSelect = useCallback((option) => {
+        setWrongPick(null);
+
+        if (option.correct) {
+          const newLink = { text: option.text, reason: option.reason, index: chain.length + 1 };
+          setChain(prev => [...prev, newLink]);
+
+          // Check for branch options at this step
+          const step = data.steps[currentStepIdx];
+          if (step) {
+            const branchOptions = step.options.filter(o => o.id !== option.id && o.branch);
+            branchOptions.forEach(bo => {
+              setBranches(prev => [...prev, {
+                fromIndex: chain.length + 1,
+                text: bo.text,
+                reason: bo.reason,
+                branchChain: bo.branchChain || []
+              }]);
+            });
+          }
+
+          if (option.next !== undefined) {
+            const nextIdx = data.steps.findIndex(s => s.id === option.next);
+            if (nextIdx >= 0) {
+              setCurrentStepIdx(nextIdx);
+            } else {
+              setIsComplete(true);
+            }
+          } else if (currentStepIdx + 1 < data.steps.length) {
+            setCurrentStepIdx(currentStepIdx + 1);
+          } else {
+            setIsComplete(true);
+          }
+        } else {
+          setWrongPick(option);
+          setTimeout(() => setWrongPick(null), 3000);
+        }
+      }, [chain, currentStepIdx, data.steps]);
+
+      const reset = useCallback(() => {
+        setChain([]);
+        setBranches([]);
+        setCurrentStepIdx(0);
+        setIsComplete(false);
+        setWrongPick(null);
+      }, []);
+
+      return html`
+        <div class="max-w-5xl mx-auto px-8 pb-12">
+          <div class="max-w-2xl mx-auto">
+            <!-- Root event -->
+            <${ChainLink} text=${data.root.text} reason=${data.root.reason} index=${0} isRoot=${true}
+              isActive=${chain.length === 0 && !isComplete} />
+
+            <!-- Built chain -->
+            ${chain.map((link, i) => {
+              // Check if there's a branch at this index
+              const branchHere = branches.filter(b => b.fromIndex === link.index);
+
+              return html`
+                <div key=${i} class="mt-4">
+                  <${ChainLink} text=${link.text} reason=${link.reason} index=${link.index}
+                    isActive=${i === chain.length - 1 && !isComplete} />
+
+                  <!-- Branch indicator -->
+                  ${branchHere.length > 0 && html`
+                    <div class="ml-12 mt-3 mb-1 branch-grow">
+                      <div class="flex items-center gap-2 mb-2">
+                        <svg class="w-3.5 h-3.5 text-sky-400" viewBox="0 0 16 16" fill="none">
+                          <path d="M5 3L5 8C5 10.2091 6.79086 12 9 12L13 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                          <path d="M11 10L13 12L11 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <span class="font-mono text-xs text-sky-400 tracking-wide uppercase">Alternate path</span>
+                      </div>
+                      ${branchHere.map(branch => html`
+                        <div class="ml-4 border-l-2 border-sky-800/40 pl-4 space-y-3">
+                          <div class="bg-sky-950/20 rounded-lg border border-sky-800/30 p-3">
+                            <p class="text-sm text-sky-300">${branch.text}</p>
+                            ${branch.reason && html`
+                              <div class="mt-1.5 flex items-start gap-1.5">
+                                <span class="font-mono text-xs text-slate-600 flex-shrink-0">because</span>
+                                <span class="text-xs text-slate-500 italic">${branch.reason}</span>
+                              </div>
+                            `}
+                          </div>
+                          ${branch.branchChain.map((bc, bi) => html`
+                            <div class="bg-sky-950/10 rounded-lg border border-sky-800/20 p-3">
+                              <p class="text-sm text-sky-400/80">${bc.text}</p>
+                              ${bc.reason && html`
+                                <div class="mt-1.5 flex items-start gap-1.5">
+                                  <span class="font-mono text-xs text-slate-600 flex-shrink-0">because</span>
+                                  <span class="text-xs text-slate-500 italic">${bc.reason}</span>
+                                </div>
+                              `}
+                            </div>
+                          `)}
+                        </div>
+                      `)}
+                    </div>
+                  `}
+                </div>
+              `;
+            })}
+
+            <!-- Current selection -->
+            ${!isComplete && currentStep && html`
+              <div class="mt-6">
+                <${OptionSelector}
+                  options=${currentStep.options}
+                  onSelect=${handleSelect}
+                  stepIndex=${currentStepIdx} />
+              </div>
+            `}
+
+            <!-- Wrong pick feedback -->
+            ${wrongPick && html`
+              <div class="ml-12 mt-3 fade-slide-in">
+                <div class="bg-red-950/30 border border-red-800/40 rounded-lg px-4 py-3">
+                  <p class="text-red-400 text-sm">${wrongPick.feedback || 'Not the most likely consequence. Think about the immediate effect.'}</p>
+                </div>
+              </div>
+            `}
+
+            <!-- Completion -->
+            ${isComplete && html`
+              <div class="mt-8 fade-slide-in">
+                <div class="bg-[#fb923c]/5 border border-[#fb923c]/20 rounded-xl p-6 text-center">
+                  <div class="text-[#fb923c] font-mono text-xs tracking-wide uppercase mb-2">Chain Complete</div>
+                  <p class="text-slate-300 text-sm leading-relaxed mb-4">
+                    You traced the full failure cascade from a vague description to team abandonment. Every link in this chain could have been broken by writing a better description field.
+                  </p>
+                  <div class="flex items-center justify-center gap-3 text-sm">
+                    <span class="font-mono text-[#fb923c]">${chain.length} links</span>
+                    <span class="text-slate-600">|</span>
+                    <span class="font-mono text-sky-400">${branches.length} branch${branches.length !== 1 ? 'es' : ''}</span>
+                  </div>
+                </div>
+              </div>
+            `}
+
+            <div ref=${chainEndRef} />
+
+            <!-- Controls -->
+            <div class="flex items-center justify-between mt-8">
+              <div class="flex items-center gap-2">
+                <div class="w-24 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div class="h-full rounded-full bg-[#fb923c] transition-all duration-500 ease-out"
+                    style="width: ${isComplete ? 100 : (chain.length / data.steps.length) * 100}%" />
+                </div>
+                <span class="font-mono text-xs text-slate-500">${chain.length} / ${data.steps.length}</span>
+              </div>
+              <button onClick=${reset}
+                class="font-mono text-xs text-slate-500 hover:text-slate-300 transition-colors px-3 py-1.5 rounded border border-slate-800 hover:border-slate-600">
+                Reset
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ── Demo Data ──────────────────────────────────────────
+
+    const chainData = {
+      root: {
+        text: 'The skill description says "Handles project management tasks" (too vague)',
+        reason: null
+      },
+      steps: [
+        {
+          id: 's1',
+          options: [
+            {
+              id: 'a', text: "Claude can't match the query to this description",
+              reason: 'the description lacks specific triggers \u2014 "project management" could mean anything from sprint planning to Jira ticket creation',
+              correct: true, next: 's2'
+            },
+            {
+              id: 'b', text: 'Claude matches a DIFFERENT, more specific skill instead',
+              reason: "another skill's description mentions exact keywords from the query, making it a stronger semantic match",
+              correct: false, branch: true,
+              branchChain: [
+                { text: 'The wrong skill produces an incorrect or partial response', reason: 'it was designed for a different task but matched on surface-level keywords' },
+                { text: 'The user thinks the system is broken', reason: 'they expected one behavior and got something entirely different' }
+              ],
+              feedback: "That's actually an alternate path! It's real, but the more common immediate consequence is simpler \u2014 the skill just never fires at all."
+            },
+            {
+              id: 'c', text: 'Claude executes the skill correctly anyway',
+              reason: null,
+              correct: false,
+              feedback: "Not with a vague description. Claude's router relies on semantic matching against the description text. Vague = poor match signal."
+            }
+          ]
+        },
+        {
+          id: 's2',
+          options: [
+            {
+              id: 'a', text: 'The skill never fires automatically',
+              reason: 'without a strong semantic match between query and description, the router has no signal to trigger it',
+              correct: true, next: 's3'
+            },
+            {
+              id: 'b', text: 'The skill fires but produces errors',
+              reason: null,
+              correct: false,
+              feedback: "It can't produce errors if it never fires. The problem happens upstream \u2014 at the routing stage, not execution."
+            }
+          ]
+        },
+        {
+          id: 's3',
+          options: [
+            {
+              id: 'a', text: 'Users must type /skill-name every time',
+              reason: 'auto-trigger fails, so the only way to use this skill is through explicit manual invocation',
+              correct: true, next: 's4'
+            },
+            {
+              id: 'b', text: 'Users rewrite the description themselves',
+              reason: null,
+              correct: false,
+              feedback: "That would be the ideal fix, but most users don't know the description is the problem. They just experience the symptom: the skill doesn't work."
+            }
+          ]
+        },
+        {
+          id: 's4',
+          options: [
+            {
+              id: 'a', text: 'Users forget the skill exists',
+              reason: "it never surfaces in normal workflow \u2014 out of sight, out of mind",
+              correct: true, next: 's5'
+            },
+            {
+              id: 'b', text: 'Users file a bug report',
+              reason: null,
+              correct: false,
+              feedback: "Some might, but the typical behavior is quieter \u2014 they just stop trying. The skill silently drops out of the workflow."
+            }
+          ]
+        },
+        {
+          id: 's5',
+          options: [
+            {
+              id: 'a', text: 'The team stops using the skill entirely',
+              reason: 'manual invocation adds friction, and friction kills adoption \u2014 especially for tools that are supposed to feel automatic',
+              correct: true
+            },
+            {
+              id: 'b', text: 'The team builds a wrapper script',
+              reason: null,
+              correct: false,
+              feedback: "Possible in highly motivated teams, but adding a wrapper to fix a description problem is over-engineering. The real fix is 20 characters of better copy."
+            }
+          ]
+        }
+      ]
+    };
+
+    // ── Render ──────────────────────────────────────────────
+
+    function App() {
+      return html`<${CausalChainBuilder} data=${chainData} />`;
+    }
+
+    render(html`<${App} />`, document.getElementById('app'));
+  </script>
+</body>
+</html>

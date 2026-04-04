@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prediction-Then-Reveal — Component Demo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['DM Sans', 'sans-serif'], mono: ['DM Mono', 'monospace'] } } }
+    }
+  </script>
+  <style>
+    .grain { background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); }
+    @keyframes revealSlide { from { opacity:0; transform: translateY(12px); } to { opacity:1; transform: translateY(0); } }
+    .reveal-in { animation: revealSlide 0.4s cubic-bezier(.22,.68,0,.71); }
+    textarea:focus { outline: none; }
+  </style>
+</head>
+<body class="bg-[#0a0e1a] text-slate-200 font-sans grain min-h-screen">
+
+  <div class="max-w-5xl mx-auto px-8 pt-20 pb-8">
+    <div class="text-[#38bdf8] font-mono text-xs tracking-[0.25em] mb-3 uppercase">Component 04</div>
+    <h1 class="text-4xl font-bold text-white mb-3 tracking-tight">Prediction-Then-Reveal</h1>
+    <p class="text-slate-400 max-w-xl leading-relaxed">The learner writes a free-text prediction before seeing the answer. The commitment forces deeper processing than any multiple-choice quiz. The gap between prediction and reality is where learning happens.</p>
+  </div>
+
+  <div id="app"></div>
+
+  <script type="module">
+    import { h, render } from 'https://esm.sh/preact@10';
+    import { useState } from 'https://esm.sh/preact@10/hooks';
+    import htm from 'https://esm.sh/htm@3';
+    const html = htm.bind(h);
+
+    // ── The Reusable Component ──────────────────────────────
+
+    function PredictionBlock({ scenario, prompt, answer, explanation, followUp }) {
+      const [prediction, setPrediction] = useState('');
+      const [revealed, setRevealed] = useState(false);
+      const [showFollowUp, setShowFollowUp] = useState(false);
+      const canReveal = prediction.trim().length > 5;
+
+      return html`
+        <div class="bg-[#0d1320] rounded-2xl border border-slate-800/60 overflow-hidden">
+          <!-- Scenario -->
+          <div class="p-6 border-b border-slate-800/40">
+            <div class="text-slate-500 font-mono text-[10px] tracking-wider uppercase mb-3">Scenario</div>
+            ${typeof scenario === 'string' ? html`<p class="text-slate-300 text-sm leading-relaxed">${scenario}</p>` : scenario}
+          </div>
+
+          <!-- Prediction input -->
+          <div class="p-6 border-b border-slate-800/40">
+            <div class="text-[#38bdf8] font-mono text-[10px] tracking-wider uppercase mb-3">Your Prediction</div>
+            <p class="text-white font-medium text-sm mb-4">${prompt}</p>
+            <textarea
+              value=${prediction}
+              onInput=${e => setPrediction(e.target.value)}
+              disabled=${revealed}
+              placeholder="Type your prediction here... (commit before revealing)"
+              class=${"w-full bg-[#0a0e1a] border rounded-xl p-4 text-sm leading-relaxed resize-none font-sans transition-all " +
+                (revealed ? "border-slate-800/40 text-slate-400 opacity-60" : "border-[#38bdf8]/20 text-slate-200 focus:border-[#38bdf8]/50 placeholder:text-slate-700")}
+              rows="3"
+            />
+            ${!revealed && html`
+              <div class="mt-4 flex items-center justify-between">
+                <span class="text-slate-600 text-xs">${canReveal ? "Ready to reveal" : "Write at least a few words to commit"}</span>
+                <button onClick=${() => { if (canReveal) setRevealed(true); }}
+                  class=${"px-6 py-2.5 rounded-xl text-sm font-medium transition-all " +
+                    (canReveal ? "bg-[#38bdf8]/15 hover:bg-[#38bdf8]/25 border border-[#38bdf8]/30 text-[#38bdf8]" :
+                     "bg-slate-800/50 text-slate-600 cursor-not-allowed border border-slate-800")}>
+                  Reveal Answer
+                </button>
+              </div>
+            `}
+          </div>
+
+          <!-- Revealed answer -->
+          ${revealed && html`
+            <div class="reveal-in">
+              <div class="p-6 border-b border-slate-800/40 bg-[#0a0e1a]/50">
+                <div class="text-[#34d399] font-mono text-[10px] tracking-wider uppercase mb-3">Actual Answer</div>
+                <div class="bg-[#0a0e1a] rounded-xl border border-[#34d399]/20 p-4 mb-4">
+                  ${typeof answer === 'string' ? html`<p class="text-[#34d399] text-sm font-medium leading-relaxed">${answer}</p>` : answer}
+                </div>
+                <div class="text-slate-400 text-sm leading-relaxed">${explanation}</div>
+              </div>
+
+              <!-- Comparison moment -->
+              <div class="p-6 bg-[#0d1320]">
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                  <div class="rounded-xl bg-[#0a0e1a] border border-slate-800/40 p-4">
+                    <div class="text-slate-600 font-mono text-[10px] tracking-wider uppercase mb-2">You Predicted</div>
+                    <p class="text-slate-400 text-xs leading-relaxed italic">"${prediction}"</p>
+                  </div>
+                  <div class="rounded-xl bg-[#0a0e1a] border border-[#34d399]/15 p-4">
+                    <div class="text-[#34d399]/60 font-mono text-[10px] tracking-wider uppercase mb-2">Reality</div>
+                    <p class="text-slate-300 text-xs leading-relaxed">${typeof answer === 'string' ? answer : 'See above'}</p>
+                  </div>
+                </div>
+
+                ${followUp && !showFollowUp && html`
+                  <button onClick=${() => setShowFollowUp(true)}
+                    class="text-[#38bdf8]/60 text-xs hover:text-[#38bdf8] transition-all">
+                    Why does this matter? →
+                  </button>
+                `}
+                ${showFollowUp && html`
+                  <div class="mt-3 text-xs text-slate-500 leading-relaxed reveal-in border-t border-slate-800/40 pt-3">${followUp}</div>
+                `}
+              </div>
+            </div>
+          `}
+        </div>
+      `;
+    }
+
+    // ── Multi-Prediction Sequence ────────────────────────────
+
+    function PredictionSequence({ items, title }) {
+      const [current, setCurrent] = useState(0);
+      const [completed, setCompleted] = useState(0);
+      const done = completed >= items.length;
+
+      return html`
+        <div class="max-w-3xl mx-auto px-8 py-12">
+          ${title && html`
+            <div class="mb-8">
+              <h2 class="text-2xl font-bold text-white mb-2">${title}</h2>
+              <div class="flex gap-2 mt-4">
+                ${items.map((_, i) => html`
+                  <div key=${i} class=${"h-1 flex-1 rounded-full transition-all duration-300 " +
+                    (i < completed ? "bg-[#38bdf8]" : i === current ? "bg-[#38bdf8]/40" : "bg-slate-800")} />
+                `)}
+              </div>
+            </div>
+          `}
+
+          ${!done && html`
+            <div key=${current}>
+              <${PredictionBlock}
+                scenario=${items[current].scenario}
+                prompt=${items[current].prompt}
+                answer=${items[current].answer}
+                explanation=${items[current].explanation}
+                followUp=${items[current].followUp}
+              />
+              <div class="mt-4 text-center">
+                ${completed <= current && html`
+                  <button onClick=${() => { setCompleted(c => Math.max(c, current + 1)); if (current < items.length - 1) setCurrent(c => c + 1); }}
+                    class="text-slate-500 hover:text-slate-300 text-sm transition-all mt-2"
+                    style=${{ visibility: 'visible' }}>
+                    ${current < items.length - 1 ? "Next prediction →" : "Finish"}
+                  </button>
+                `}
+              </div>
+            </div>
+          `}
+
+          ${done && html`
+            <div class="text-center reveal-in">
+              <div class="bg-[#0d1320] rounded-2xl border border-slate-800/60 p-8">
+                <div class="text-[#38bdf8] font-mono text-xs tracking-wider uppercase mb-3">Sequence Complete</div>
+                <p class="text-white font-medium mb-2">${items.length} predictions made</p>
+                <p class="text-slate-400 text-sm">The gap between what you predicted and what actually happens is where the mental model updates. Each prediction that was wrong is a corrected assumption you won't make in practice.</p>
+              </div>
+            </div>
+          `}
+        </div>
+      `;
+    }
+
+    // ── Demo ────────────────────────────────────────────────
+
+    const demoItems = [
+      {
+        scenario: html`
+          <div class="space-y-3">
+            <p class="text-slate-300 text-sm">A user has two skills installed:</p>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="bg-[#0a0e1a] rounded-lg p-3 border border-slate-800/40">
+                <div class="text-amber-400 font-mono text-xs mb-1">pr-writer</div>
+                <p class="text-slate-500 text-xs">"Generate PR descriptions from git diffs. Use when committing or opening PRs."</p>
+              </div>
+              <div class="bg-[#0a0e1a] rounded-lg p-3 border border-slate-800/40">
+                <div class="text-amber-400 font-mono text-xs mb-1">code-reviewer</div>
+                <p class="text-slate-500 text-xs">"Review code for bugs and style issues. Use when reviewing PRs or checking code quality."</p>
+              </div>
+            </div>
+            <p class="text-slate-300 text-sm">The user types: <span class="text-white font-medium">"Review this PR for security issues"</span></p>
+          </div>
+        `,
+        prompt: "Which skill fires, and why? Think about what Claude is comparing.",
+        answer: "code-reviewer fires. Even though the user said \"PR\", the intent is to REVIEW, not to WRITE a PR description. Claude matches semantic intent, not keywords.",
+        explanation: "Both skills mention \"PR\" — but Claude isn't keyword-matching. It reads the user's intent (review for security) and matches it to the skill that does reviewing. The word \"PR\" appearing in pr-writer's description doesn't make it a match.",
+        followUp: "This is why description specificity matters more than keyword coverage. A description stuffed with keywords but vague about its actual purpose will lose to a specific description every time.",
+      },
+      {
+        scenario: html`
+          <div class="space-y-3">
+            <p class="text-slate-300 text-sm">A skill has this frontmatter:</p>
+            <div class="bg-[#0a0e1a] rounded-lg p-3 border border-slate-800/40 font-mono text-xs">
+              <div class="text-slate-600">---</div>
+              <div><span class="text-purple-400">name:</span> deploy-prod</div>
+              <div><span class="text-purple-400">description:</span> "Deploy to production. Use when deploying."</div>
+              <div><span class="text-purple-400">allowed-tools:</span> "Read Write Bash Edit"</div>
+              <div class="text-slate-600">---</div>
+            </div>
+            <p class="text-slate-300 text-sm">A user asks: <span class="text-white font-medium">"How is our deploy pipeline configured?"</span></p>
+          </div>
+        `,
+        prompt: "What happens? Think about what Claude might do with this skill and these permissions.",
+        answer: "The skill might auto-trigger on the word \"deploy\" — and it has full Write + Bash permissions. Claude could start modifying files or running deploy commands when the user only wanted to understand the configuration.",
+        explanation: "Two problems compound: (1) No disable-model-invocation: true, so Claude can auto-trigger. (2) Broad allowed-tools pre-approves destructive actions. The user asked a question, but the skill's configuration could turn it into an action.",
+        followUp: "This is why the autonomy controls are coordinated, not independent. Auto-trigger is safe with read-only tools. Full tools are safe with manual trigger. The dangerous combination is auto-trigger + full tools — Claude decides to fire AND has the power to modify your system.",
+      },
+      {
+        scenario: html`
+          <div class="space-y-3">
+            <p class="text-slate-300 text-sm">A team has 45 skills installed. Each skill's description averages 120 characters. The context budget for skill descriptions is ~8,000 characters.</p>
+            <div class="bg-[#0a0e1a] rounded-lg p-3 border border-slate-800/40">
+              <div class="font-mono text-xs text-slate-400">45 skills × ~120 chars = ~5,400 chars</div>
+              <div class="font-mono text-xs text-slate-400 mt-1">Budget remaining: ~2,600 chars</div>
+            </div>
+            <p class="text-slate-300 text-sm">They want to add 15 more skills.</p>
+          </div>
+        `,
+        prompt: "What happens to skill triggering when they add those 15 skills? Think about the budget constraint.",
+        answer: "60 skills × 120 chars = 7,200 chars. That's within budget, but barely. At this density, descriptions start getting truncated to 250 chars each (or less if the budget is tight). Skills with important trigger phrases at the END of their description may lose those phrases to truncation.",
+        explanation: "The description budget is shared across ALL skills. Adding more skills doesn't just add overhead — it can degrade existing skills by compressing their descriptions. This is why front-loading key trigger phrases is critical: they need to survive truncation.",
+        followUp: "The practical limit is roughly 50-70 skills before descriptions start competing destructively for space. Beyond that, consider using disable-model-invocation: true on low-frequency skills to remove them from the budget entirely.",
+      },
+    ];
+
+    function App() {
+      return html`<${PredictionSequence} items=${demoItems} title="Predict What Claude Does" />`;
+    }
+
+    render(html`<${App} />`, document.getElementById('app'));
+  </script>
+</body>
+</html>

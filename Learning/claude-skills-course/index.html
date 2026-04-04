@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mastering Claude Skills — Interactive Course</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] } } }
+    }
+  </script>
+  <style>
+    .fade-in { animation: fadeIn 0.5s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    .card-hover { transition: all 0.2s ease; }
+    .card-hover:hover { transform: translateY(-2px); }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-200 font-sans min-h-screen">
+  <div id="app"></div>
+  <script type="module">
+    import { h, render } from 'https://esm.sh/preact@10';
+    import htm from 'https://esm.sh/htm@3';
+    const html = htm.bind(h);
+
+    const modules = [
+      {
+        num: 1,
+        title: "The Routing Problem",
+        subtitle: "How Claude decides which skill to load",
+        color: "amber",
+        href: "01-the-routing-problem.html",
+        concepts: ["What skills actually are", "How Claude selects skills", "Description-first design", "The WHAT + WHEN formula"],
+        threshold: "The description IS the skill. If it's vague, your instructions are invisible.",
+      },
+      {
+        num: 2,
+        title: "The Information Architecture",
+        subtitle: "What goes where — and why it matters",
+        color: "blue",
+        href: "02-information-architecture.html",
+        concepts: ["3-level progressive disclosure", "Context window economics", "5 architecture patterns", "The context budget"],
+        threshold: "Building a skill = designing an information architecture for a finite context window.",
+      },
+      {
+        num: 3,
+        title: "The Autonomy Control Surface",
+        subtitle: "Six coordinated controls for skill agency",
+        color: "emerald",
+        href: "03-autonomy-control-surface.html",
+        concepts: ["6 autonomy controls", "Configuring real scenarios", "Per-step constraint design", "Procedural / Criteria / Template / Guardrail"],
+        threshold: "These aren't independent toggles — they're a coordinated control surface.",
+      },
+      {
+        num: 4,
+        title: "The Anti-Patterns Lab",
+        subtitle: "Debug broken skills, learn from what breaks",
+        color: "rose",
+        href: "04-anti-patterns-lab.html",
+        concepts: ["5 buggy skills to diagnose", "Testing methodology", "Ecosystem decision framework", "Skills vs CLAUDE.md vs Hooks vs Subagents"],
+        threshold: "Every bug maps to a concept from Modules 1-3. Anti-patterns are predictable.",
+      },
+    ];
+
+    function App() {
+      return html`
+        <div class="max-w-4xl mx-auto px-6 py-16">
+          <!-- Header -->
+          <div class="text-center mb-16 fade-in">
+            <div class="font-mono text-sm text-slate-500 tracking-widest mb-4">INTERACTIVE COURSE</div>
+            <h1 class="text-5xl md:text-6xl font-extrabold text-white mb-6 tracking-tight leading-tight">Mastering<br/>Claude Skills</h1>
+            <p class="text-xl text-slate-400 max-w-xl mx-auto leading-relaxed">Design philosophy, architecture patterns, and best practices — from beginner to building production-grade skills.</p>
+          </div>
+
+          <!-- Learning Path Visualization -->
+          <div class="mb-16">
+            <div class="flex items-center justify-center gap-2 mb-8">
+              ${modules.map((m, i) => html`
+                <Fragment key=${m.num}>
+                  <div class=${"w-10 h-10 rounded-full border-2 flex items-center justify-center font-bold text-sm border-" + m.color + "-500 text-" + m.color + "-400 bg-" + m.color + "-950/30"}>
+                    ${m.num}
+                  </div>
+                  ${i < modules.length - 1 && html`<div class="w-12 h-0.5 bg-slate-700"></div>`}
+                </Fragment>
+              `)}
+            </div>
+          </div>
+
+          <!-- Module Cards -->
+          <div class="space-y-4 mb-16">
+            ${modules.map(m => html`
+              <a key=${m.num} href=${m.href} class="block card-hover">
+                <div class=${"rounded-xl border bg-slate-800/50 overflow-hidden border-" + m.color + "-800/40 hover:border-" + m.color + "-600/60"}>
+                  <div class="p-6 md:p-8">
+                    <div class="flex items-start gap-5">
+                      <div class=${"text-3xl font-extrabold text-" + m.color + "-500/30 font-mono leading-none pt-1"}>0${m.num}</div>
+                      <div class="flex-1">
+                        <h2 class="text-xl font-bold text-white mb-1">${m.title}</h2>
+                        <p class="text-slate-400 text-sm mb-4">${m.subtitle}</p>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                          ${m.concepts.map(c => html`
+                            <span class="text-xs px-2 py-1 rounded-full bg-slate-900 text-slate-400 border border-slate-700">${c}</span>
+                          `)}
+                        </div>
+                        <div class=${"text-sm text-" + m.color + "-300/70 italic"}>
+                          "${m.threshold}"
+                        </div>
+                      </div>
+                      <div class=${"text-" + m.color + "-500 text-2xl shrink-0 pt-1"}>→</div>
+                    </div>
+                  </div>
+                </div>
+              </a>
+            `)}
+          </div>
+
+          <!-- Course Info -->
+          <div class="grid md:grid-cols-3 gap-4 mb-16">
+            <div class="bg-slate-800 rounded-lg p-5 border border-slate-700 text-center">
+              <div class="text-2xl font-bold text-white mb-1">4</div>
+              <div class="text-slate-400 text-sm">Modules</div>
+            </div>
+            <div class="bg-slate-800 rounded-lg p-5 border border-slate-700 text-center">
+              <div class="text-2xl font-bold text-white mb-1">20+</div>
+              <div class="text-slate-400 text-sm">Interactive exercises</div>
+            </div>
+            <div class="bg-slate-800 rounded-lg p-5 border border-slate-700 text-center">
+              <div class="text-2xl font-bold text-white mb-1">14</div>
+              <div class="text-slate-400 text-sm">Concepts covered</div>
+            </div>
+          </div>
+
+          <!-- Sources -->
+          <div class="border-t border-slate-800 pt-8">
+            <div class="text-center">
+              <div class="text-slate-600 text-xs font-mono mb-4">SYNTHESIZED FROM</div>
+              <div class="flex flex-wrap gap-3 justify-center text-xs text-slate-500">
+                <span>Anthropic Official Guide</span>
+                <span class="text-slate-700">·</span>
+                <span>Claude Code Docs</span>
+                <span class="text-slate-700">·</span>
+                <span>Agent Skills Deep Dive</span>
+                <span class="text-slate-700">·</span>
+                <span>skill-creator SKILL.md</span>
+                <span class="text-slate-700">·</span>
+                <span>Community anti-pattern analysis</span>
+                <span class="text-slate-700">·</span>
+                <span>15+ sources total</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    render(html`<${App} />`, document.getElementById('app'));
+  </script>
+</body>
+</html>

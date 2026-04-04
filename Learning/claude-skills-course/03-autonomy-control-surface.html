@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 3: The Autonomy Control Surface — Claude Skills Course</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] } } }
+    }
+  </script>
+  <style>
+    .fade-in { animation: fadeIn 0.35s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-200 font-sans min-h-screen">
+  <div id="app"></div>
+  <script type="module">
+    import { h, render } from 'https://esm.sh/preact@10';
+    import { useState } from 'https://esm.sh/preact@10/hooks';
+    import htm from 'https://esm.sh/htm@3';
+    const html = htm.bind(h);
+
+    // ── Data ──────────────────────────────────────────────────
+
+    const controls = [
+      { key: "desc", name: "Description Specificity", field: "description", what: "Routing precision", low: "Vague — fires on many queries, or none at all", high: "Precise — fires exactly when intended", icon: "🎯", color: "amber" },
+      { key: "dmi", name: "Model Invocation", field: "disable-model-invocation", what: "Trigger authority", low: "true — Only user can trigger (/skill-name)", high: "false (default) — Claude auto-triggers when relevant", icon: "🔒", color: "red" },
+      { key: "tools", name: "Allowed Tools", field: "allowed-tools", what: "Execution scope", low: "Read Grep — read-only, safe", high: "Read Write Bash Edit — full access, powerful but risky", icon: "🔧", color: "blue" },
+      { key: "fork", name: "Context Fork", field: "context: fork", what: "Context isolation", low: "off — runs inline, shares conversation context", high: "on — runs in subagent, separate context window", icon: "🔀", color: "purple" },
+      { key: "effort", name: "Effort Level", field: "effort", what: "Reasoning depth", low: "low — fast, shallow reasoning", high: "max — deep, thorough reasoning (Opus only)", icon: "🧠", color: "green" },
+      { key: "paths", name: "Path Patterns", field: "paths", what: "Activation scope", low: "No restriction — fires on any file", high: '"*.tsx,*.jsx" — only fires when working with matching files', icon: "📁", color: "cyan" },
+    ];
+
+    const scenarios = [
+      {
+        name: "Deploy to Production",
+        desc: "A skill that deploys your app. Has side effects. Should never fire accidentally.",
+        correct: { desc: "high", dmi: "low", tools: "high", fork: "low", effort: "low", paths: "low" },
+        explain: {
+          dmi: "disable-model-invocation: true — deployment should ONLY happen when the user explicitly types /deploy. Claude should never auto-trigger a production deployment.",
+          tools: "Needs Bash to run deploy commands, Write to update configs. Full tool access is justified because the user explicitly invokes this.",
+          fork: "Runs inline so the user sees each deployment step and can intervene.",
+        }
+      },
+      {
+        name: "Codebase Security Audit",
+        desc: "Reads hundreds of files to analyze security. Generates a report. No side effects.",
+        correct: { desc: "high", dmi: "high", tools: "low", fork: "high", effort: "high", paths: "low" },
+        explain: {
+          fork: "context: fork is critical. Reading hundreds of files would fill the main context window. A subagent reads them and returns a summary.",
+          tools: "Read-only. A security audit shouldn't modify files. Grep and Read are sufficient.",
+          effort: "max effort — security analysis benefits from deep, thorough reasoning. Don't rush this.",
+        }
+      },
+      {
+        name: "React Component Conventions",
+        desc: "Background knowledge about your team's React patterns. Should apply automatically when working on .tsx files.",
+        correct: { desc: "high", dmi: "high", tools: "low", fork: "low", effort: "low", paths: "high" },
+        explain: {
+          paths: '"*.tsx,*.jsx" restricts this skill to only activate when Claude is working with React files. It won\'t pollute context when you\'re writing Python.',
+          dmi: "Let Claude auto-trigger — this is background knowledge, not a command. You want it applied automatically.",
+          fork: "Runs inline because it modifies Claude's behavior in the current conversation, not in isolation.",
+        }
+      },
+    ];
+
+    const constraintTypes = [
+      { name: "Procedural", tag: "HOW", color: "blue", desc: "Step-by-step operations. Sequential, repeatable.", example: "1. Run tests\n2. Build app\n3. Deploy to staging\n4. Run smoke tests\n5. Promote to production", best: "Deployment, file conversion, Git workflows" },
+      { name: "Criteria", tag: "WHAT", color: "green", desc: "Quality standards and evaluation axes. Defines what good looks like.", example: "Evaluate on:\n- Cost (weight: 40%)\n- Integration ease (30%)\n- Learning curve (30%)\nRecommend highest scorer.", best: "Decisions, code review, ROI analysis" },
+      { name: "Template", tag: "STRUCTURE", color: "purple", desc: "Fixed output structure, flexible content within.", example: "## Summary (200 words max)\n## Changes\n- [file]: [what changed]\n## Testing\n- [ ] Unit tests pass\n- [ ] Manual verification", best: "PR descriptions, reports, meeting notes" },
+      { name: "Guardrail", tag: "BOUNDARY", color: "red", desc: "Prohibitions and boundaries. Says what NOT to do.", example: "NEVER:\n- Present unverified numbers\n- Modify migration files\n- Skip the review step\n- Deploy without tests passing", best: "Security, compliance, sensitive operations" },
+    ];
+
+    const constraintExercise = [
+      { instruction: "Run the linter, fix any errors, then run tests", answer: "Procedural", why: "Sequential steps that must happen in order. HOW to do the task." },
+      { instruction: "PR description must have: Summary (under 200 words), Changes list, Test plan checklist", answer: "Template", why: "Fixed structure with flexible content within each section." },
+      { instruction: "Never commit directly to main. Never skip pre-commit hooks. Never force-push.", answer: "Guardrail", why: "Prohibitions defining boundaries. Says what NOT to do." },
+      { instruction: "Review for: readability (40%), performance (30%), security (30%). Flag anything scoring below 6/10.", answer: "Criteria", why: "Quality standards with evaluation axes and thresholds." },
+      { instruction: "Generate a changelog entry with: version, date, breaking changes, features, fixes", answer: "Template", why: "Fixed output format. The content varies but the structure is locked." },
+    ];
+
+    // ── Shared Components ────────────────────────────────────
+
+    function ProgressBar({ current, total }) {
+      const pct = ((current + 1) / total) * 100;
+      return html`
+        <div class="fixed top-0 left-0 right-0 z-50 bg-slate-950/80 backdrop-blur-sm border-b border-slate-800">
+          <div class="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between">
+            <a href="index.html" class="text-slate-500 hover:text-slate-300 text-sm transition">← Course Overview</a>
+            <span class="text-slate-500 text-sm font-medium">Module 3 of 4</span>
+            <span class="text-slate-500 text-sm">${current + 1} / ${total}</span>
+          </div>
+          <div class="h-0.5 bg-slate-800"><div class="h-full bg-emerald-500 transition-all duration-500" style=${{ width: pct + '%' }}></div></div>
+        </div>
+      `;
+    }
+
+    function Nav({ section, total, setSection }) {
+      return html`
+        <div class="flex justify-between items-center mt-12 pt-8 border-t border-slate-800">
+          ${section > 0
+            ? html`<button onClick=${() => setSection(section - 1)} class="text-slate-400 hover:text-white transition">← Previous</button>`
+            : html`<a href="02-information-architecture.html" class="text-slate-400 hover:text-white transition">← Module 2</a>`}
+          ${section < total - 1
+            ? html`<button onClick=${() => setSection(section + 1)} class="px-6 py-2.5 rounded-lg font-medium transition bg-emerald-600 hover:bg-emerald-500 text-white">Next →</button>`
+            : html`<a href="04-anti-patterns-lab.html" class="px-6 py-2.5 rounded-lg font-medium bg-emerald-600 hover:bg-emerald-500 text-white transition">Next Module →</a>`}
+        </div>
+      `;
+    }
+
+    // ── Section 0: Title ─────────────────────────────────────
+
+    function TitleSection() {
+      return html`
+        <div class="text-center py-16">
+          <div class="text-emerald-400 font-mono text-sm tracking-widest mb-4">MODULE 3 OF 4</div>
+          <h1 class="text-5xl font-extrabold text-white mb-6 tracking-tight">The Autonomy Control Surface</h1>
+          <p class="text-xl text-slate-400 max-w-xl mx-auto leading-relaxed">Six coordinated controls that determine how much agency your skill has.</p>
+        </div>
+      `;
+    }
+
+    // ── Section 1: The Six Controls ──────────────────────────
+
+    function SixControls() {
+      const [active, setActive] = useState(null);
+      return html`
+        <div>
+          <h2 class="text-3xl font-bold text-white mb-2">The Six Controls</h2>
+          <p class="text-slate-400 mb-4">Most people treat these as independent toggles. They're not — they're a coordinated control surface. Each one governs a different dimension of your skill's autonomy.</p>
+          <p class="text-slate-400 mb-8 text-sm">Click each control to see what it governs:</p>
+
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+            ${controls.map(c => html`
+              <button key=${c.key} onClick=${() => setActive(active === c.key ? null : c.key)}
+                class=${"rounded-lg border p-4 transition text-left " +
+                  (active === c.key ? "border-" + c.color + "-500 bg-" + c.color + "-950/20" : "border-slate-700 bg-slate-800 hover:border-slate-600")}>
+                <div class="text-2xl mb-2">${c.icon}</div>
+                <div class="text-white font-medium text-sm">${c.name}</div>
+                <div class="text-slate-500 text-xs mt-1">${c.what}</div>
+              </button>
+            `)}
+          </div>
+
+          ${active && html`
+            <div class="bg-slate-800 rounded-lg p-5 border border-slate-700 fade-in" key=${active}>
+              ${(() => {
+                const c = controls.find(x => x.key === active);
+                return html`
+                  <div class="flex items-center gap-2 mb-3">
+                    <span class="text-2xl">${c.icon}</span>
+                    <span class="text-white font-bold">${c.name}</span>
+                    <span class="font-mono text-xs text-slate-500 ml-auto">${c.field}</span>
+                  </div>
+                  <p class="text-slate-400 text-sm mb-4">Controls: <span class="text-white">${c.what}</span></p>
+                  <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-slate-900 rounded-lg p-3 border border-slate-700">
+                      <div class="text-slate-500 text-xs mb-2 font-mono">RESTRICTED</div>
+                      <p class="text-slate-300 text-sm">${c.low}</p>
+                    </div>
+                    <div class="bg-slate-900 rounded-lg p-3 border border-slate-700">
+                      <div class="text-slate-500 text-xs mb-2 font-mono">PERMISSIVE</div>
+                      <p class="text-slate-300 text-sm">${c.high}</p>
+                    </div>
+                  </div>
+                `;
+              })()}
+            </div>
+          `}
+
+          <div class="mt-6 bg-emerald-950/30 rounded-lg p-4 border border-emerald-800/40">
+            <p class="text-emerald-300 text-sm"><span class="font-bold">Key insight:</span> These controls work together. A skill with <span class="font-mono text-xs">disable-model-invocation: true</span> + broad <span class="font-mono text-xs">allowed-tools</span> is safe because the user explicitly triggers it. A skill with auto-trigger + broad tools is dangerous — Claude could fire it unpredictably with full permissions.</p>
+          </div>
+        </div>
+      `;
+    }
+
+    // ── Section 2: Configure a Skill ─────────────────────────
+
+    function ConfigureSkill() {
+      const [scenarioIdx, setScenarioIdx] = useState(0);
+      const [answers, setAnswers] = useState({});
+      const [revealed, setRevealed] = useState(false);
+      const s = scenarios[scenarioIdx];
+
+      const relevantControls = [
+        { key: "dmi", label: "Model Invocation", optA: "User only (disable-model-invocation: true)", optB: "Auto-trigger (default)", valA: "low", valB: "high" },
+        { key: "tools", label: "Tool Scope", optA: "Read-only (Read, Grep, Glob)", optB: "Full access (Read, Write, Bash, Edit)", valA: "low", valB: "high" },
+        { key: "fork", label: "Context", optA: "Inline (shared context)", optB: "Forked (separate subagent)", valA: "low", valB: "high" },
+      ];
+
+      function setAnswer(key, val) {
+        if (revealed) return;
+        setAnswers(a => ({ ...a, [key]: val }));
+      }
+
+      function checkAnswers() { setRevealed(true); }
+
+      function nextScenario() {
+        setAnswers({});
+        setRevealed(false);
+        setScenarioIdx(i => i + 1);
+      }
+
+      const allAnswered = relevantControls.every(c => answers[c.key]);
+      const correctCount = revealed ? relevantControls.filter(c => answers[c.key] === s.correct[c.key]).length : 0;
+
+      return html`
+        <div>
+          <h2 class="text-3xl font-bold text-white mb-2">Configure a Skill</h2>
+          <p class="text-slate-400 mb-8">For each scenario, set the three most critical controls. Think about what this skill does and what could go wrong.</p>
+
+          <div class="flex gap-2 mb-6">
+            ${scenarios.map((sc, i) => html`
+              <div key=${i} class=${"flex-1 h-1.5 rounded-full " + (i < scenarioIdx ? "bg-emerald-500" : i === scenarioIdx ? "bg-emerald-500/50" : "bg-slate-800")}></div>
+            `)}
+          </div>
+
+          <div class="bg-blue-950/40 rounded-lg p-5 border border-blue-800/50 mb-6">
+            <div class="text-blue-400 font-mono text-xs mb-1">SCENARIO: ${s.name}</div>
+            <p class="text-white">${s.desc}</p>
+          </div>
+
+          <div class="space-y-4 mb-6">
+            ${relevantControls.map(c => {
+              const isCorrectA = revealed && s.correct[c.key] === c.valA;
+              const isCorrectB = revealed && s.correct[c.key] === c.valB;
+              const pickedA = answers[c.key] === c.valA;
+              const pickedB = answers[c.key] === c.valB;
+              return html`
+                <div key=${c.key} class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+                  <div class="text-slate-400 text-sm mb-3 font-medium">${c.label}</div>
+                  <div class="grid grid-cols-2 gap-3">
+                    <button onClick=${() => setAnswer(c.key, c.valA)}
+                      class=${"text-left text-sm p-3 rounded-lg border transition " +
+                        (revealed && isCorrectA ? "border-green-500 bg-green-950/20" :
+                         revealed && pickedA && !isCorrectA ? "border-red-500 bg-red-950/20" :
+                         pickedA ? "border-emerald-500 bg-emerald-950/20" : "border-slate-600 hover:border-slate-500")}>
+                      ${c.optA}
+                    </button>
+                    <button onClick=${() => setAnswer(c.key, c.valB)}
+                      class=${"text-left text-sm p-3 rounded-lg border transition " +
+                        (revealed && isCorrectB ? "border-green-500 bg-green-950/20" :
+                         revealed && pickedB && !isCorrectB ? "border-red-500 bg-red-950/20" :
+                         pickedB ? "border-emerald-500 bg-emerald-950/20" : "border-slate-600 hover:border-slate-500")}>
+                      ${c.optB}
+                    </button>
+                  </div>
+                  ${revealed && s.explain[c.key] && html`
+                    <p class="text-xs mt-2 text-slate-400 fade-in">${s.explain[c.key]}</p>
+                  `}
+                </div>
+              `;
+            })}
+          </div>
+
+          ${!revealed && allAnswered && html`
+            <div class="text-center fade-in">
+              <button onClick=${checkAnswers} class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg font-medium text-white transition">Check Configuration</button>
+            </div>
+          `}
+
+          ${revealed && html`
+            <div class="text-center fade-in">
+              <div class="text-lg font-bold mb-2 ${correctCount === 3 ? 'text-green-400' : correctCount >= 2 ? 'text-amber-400' : 'text-red-400'}">
+                ${correctCount}/3 correct
+              </div>
+              ${scenarioIdx < scenarios.length - 1 && html`
+                <button onClick=${nextScenario} class="px-6 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium text-white transition mt-2">Next Scenario →</button>
+              `}
+            </div>
+          `}
+        </div>
+      `;
+    }
+
+    // ── Section 3: Per-Step Constraints ───────────────────────
+
+    function PerStepConstraints() {
+      const [phase, setPhase] = useState('learn'); // learn | exercise | done
+      const [activeType, setActiveType] = useState(null);
+      const [exIdx, setExIdx] = useState(0);
+      const [pick, setPick] = useState(null);
+      const [score, setScore] = useState(0);
+      const exDone = exIdx >= constraintExercise.length;
+      const ex = constraintExercise[exIdx];
+
+      function choose(name) {
+        setPick(name);
+        if (name === ex.answer) setScore(s => s + 1);
+      }
+
+      return html`
+        <div>
+          <h2 class="text-3xl font-bold text-white mb-2">Per-Step Constraint Design</h2>
+          <p class="text-slate-400 mb-8">Most skill instructions are uniformly procedural — "do X, then Y, then Z." But different steps need different constraint types. Mixing them controls output variance at each step.</p>
+
+          ${phase === 'learn' && html`
+            <div>
+              <div class="grid grid-cols-2 gap-3 mb-6">
+                ${constraintTypes.map(ct => html`
+                  <button key=${ct.name} onClick=${() => setActiveType(activeType === ct.name ? null : ct.name)}
+                    class=${"text-left rounded-lg border p-4 transition " +
+                      (activeType === ct.name ? "border-" + ct.color + "-500 bg-" + ct.color + "-950/20" : "border-slate-700 bg-slate-800 hover:border-slate-600")}>
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class=${"text-" + ct.color + "-400 font-bold text-sm"}>${ct.name}</span>
+                      <span class=${"text-xs font-mono px-1.5 py-0.5 rounded bg-" + ct.color + "-950/50 border border-" + ct.color + "-800/50 text-" + ct.color + "-400"}>${ct.tag}</span>
+                    </div>
+                    <p class="text-slate-400 text-xs">${ct.desc}</p>
+                  </button>
+                `)}
+              </div>
+
+              ${activeType && html`
+                <div class="bg-slate-800 rounded-lg p-5 border border-slate-700 mb-6 fade-in" key=${activeType}>
+                  ${(() => {
+                    const ct = constraintTypes.find(x => x.name === activeType);
+                    return html`
+                      <div class="grid grid-cols-2 gap-4">
+                        <div>
+                          <div class="text-slate-500 text-xs mb-2">EXAMPLE IN A SKILL</div>
+                          <pre class="bg-slate-950 rounded p-3 font-mono text-xs text-slate-300 whitespace-pre-wrap border border-slate-800">${ct.example}</pre>
+                        </div>
+                        <div>
+                          <div class="text-slate-500 text-xs mb-2">BEST FOR</div>
+                          <p class="text-slate-300 text-sm">${ct.best}</p>
+                          <div class="mt-4 text-slate-500 text-xs mb-2">WHY IT MATTERS</div>
+                          <p class="text-slate-400 text-xs">${ct.name === 'Procedural' ? "Locks the sequence. Claude follows steps in order. Divergence is in judgment within each step, not in the steps themselves." :
+                            ct.name === 'Criteria' ? "Locks the evaluation frame. Claude can reason freely but must use your axes. Prevents ad-hoc reasoning." :
+                            ct.name === 'Template' ? "Locks the structure. Content varies but format is guaranteed. No creative reformatting." :
+                            "Locks the boundaries. Everything inside the boundary is allowed. Prevents the most dangerous mistakes."}</p>
+                        </div>
+                      </div>
+                    `;
+                  })()}
+                </div>
+              `}
+
+              <div class="text-center">
+                <button onClick=${() => setPhase('exercise')} class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg font-medium text-white transition">Practice Classifying →</button>
+              </div>
+            </div>
+          `}
+
+          ${phase === 'exercise' && !exDone && html`
+            <div class="fade-in" key=${exIdx}>
+              <div class="flex justify-between text-sm text-slate-500 mb-4">
+                <span>${exIdx + 1} of ${constraintExercise.length}</span>
+                <span>${score} correct</span>
+              </div>
+              <div class="bg-slate-800 rounded-lg p-5 border border-slate-700 mb-6">
+                <div class="text-slate-500 text-xs mb-2">SKILL INSTRUCTION</div>
+                <p class="text-white font-mono text-sm">"${ex.instruction}"</p>
+              </div>
+              <p class="text-slate-400 mb-4 text-sm">What type of constraint is this?</p>
+              <div class="grid grid-cols-2 gap-3">
+                ${constraintTypes.map(ct => {
+                  const selected = pick === ct.name;
+                  const show = pick !== null;
+                  const isCorrect = ct.name === ex.answer;
+                  let cls = "border-slate-700 hover:border-slate-500 cursor-pointer";
+                  if (show && isCorrect) cls = "border-green-500 bg-green-950/20";
+                  else if (show && selected && !isCorrect) cls = "border-red-500 bg-red-950/20";
+                  else if (show) cls = "border-slate-800 opacity-50";
+                  return html`
+                    <button key=${ct.name} onClick=${() => !pick && choose(ct.name)} disabled=${!!pick}
+                      class=${"text-left rounded-lg p-3 border transition " + cls + (pick ? " cursor-default" : "")}>
+                      <span class="font-medium text-sm text-white">${ct.name}</span>
+                      <span class="text-xs text-slate-500 ml-2">${ct.tag}</span>
+                    </button>
+                  `;
+                })}
+              </div>
+              ${pick && html`
+                <div class="mt-4 text-sm text-slate-400 fade-in">
+                  <span class=${pick === ex.answer ? "text-green-400" : "text-red-400"}>${pick === ex.answer ? "Correct!" : "Not quite."}</span> ${ex.why}
+                </div>
+              `}
+              ${pick && html`
+                <div class="text-center mt-4">
+                  <button onClick=${() => { setPick(null); setExIdx(i => i + 1); }} class="px-6 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium text-white transition">Next →</button>
+                </div>
+              `}
+            </div>
+          `}
+
+          ${phase === 'exercise' && exDone && html`
+            <div class="text-center fade-in">
+              <div class="text-4xl font-bold text-white mb-2">${score} / ${constraintExercise.length}</div>
+              <p class="text-slate-400 mb-4">The key: don't write uniform instructions. Mix constraint types based on what each step needs.</p>
+              <div class="bg-slate-800 rounded-lg p-5 border border-slate-700 text-left max-w-md mx-auto">
+                <p class="text-white font-medium text-sm mb-3">A well-constrained skill might look like:</p>
+                <div class="space-y-2 text-xs font-mono text-slate-400">
+                  <div><span class="text-red-400">GUARDRAIL:</span> Never modify migration files</div>
+                  <div><span class="text-blue-400">PROCEDURAL:</span> 1. Read schema → 2. Generate migration → 3. Validate</div>
+                  <div><span class="text-green-400">CRITERIA:</span> Evaluate: backwards-compatible? Data-safe? Indexed?</div>
+                  <div><span class="text-purple-400">TEMPLATE:</span> Output format: [migration file] + [rollback file]</div>
+                </div>
+              </div>
+            </div>
+          `}
+        </div>
+      `;
+    }
+
+    // ── Section 4: Bridge ────────────────────────────────────
+
+    function Bridge() {
+      return html`
+        <div class="text-center py-8">
+          <div class="max-w-lg mx-auto">
+            <div class="text-emerald-400 font-mono text-sm tracking-widest mb-4">WHAT YOU NOW KNOW</div>
+            <h2 class="text-3xl font-bold text-white mb-6">Coordinated Control, Not Toggles</h2>
+            <div class="text-left bg-slate-800 rounded-lg p-6 border border-slate-700 mb-8">
+              <div class="space-y-4 text-slate-300 text-sm">
+                <div class="flex gap-3"><span class="text-emerald-400 font-bold shrink-0">1.</span> Six controls govern different autonomy dimensions: routing precision, trigger authority, execution scope, context isolation, reasoning depth, and activation scope.</div>
+                <div class="flex gap-3"><span class="text-emerald-400 font-bold shrink-0">2.</span> They work together. <span class="font-mono text-xs text-slate-400">disable-model-invocation: true</span> + broad tools = safe (user-triggered). Auto-trigger + broad tools = dangerous.</div>
+                <div class="flex gap-3"><span class="text-emerald-400 font-bold shrink-0">3.</span> Per-step constraint design controls output variance at the instruction level: Procedural, Criteria, Template, and Guardrail for different step types.</div>
+              </div>
+            </div>
+            <div class="bg-slate-800/50 rounded-lg p-5 border border-slate-700">
+              <p class="text-slate-400 text-sm mb-3">Final module: see all these concepts come together by debugging broken skills. Real anti-patterns, real fixes.</p>
+              <a href="04-anti-patterns-lab.html" class="inline-block px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-lg font-medium text-white transition">Module 4: The Anti-Patterns Lab →</a>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ── App ──────────────────────────────────────────────────
+
+    const sections = [
+      { component: TitleSection },
+      { component: SixControls },
+      { component: ConfigureSkill },
+      { component: PerStepConstraints },
+      { component: Bridge },
+    ];
+
+    function App() {
+      const [section, setSection] = useState(0);
+      const S = sections[section].component;
+      return html`
+        <div>
+          <${ProgressBar} current=${section} total=${sections.length} />
+          <div class="max-w-3xl mx-auto px-6 pt-20 pb-12">
+            <div class="fade-in" key=${section}><${S} /></div>
+            <${Nav} section=${section} total=${sections.length} setSection=${setSection} />
+          </div>
+        </div>
+      `;
+    }
+
+    render(html`<${App} />`, document.getElementById('app'));
+  </script>
+</body>
+</html>

@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 4: The Anti-Patterns Lab — Claude Skills Course</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] } } }
+    }
+  </script>
+  <style>
+    .fade-in { animation: fadeIn 0.35s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .line-through-anim { text-decoration: line-through; text-decoration-color: #ef4444; }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-200 font-sans min-h-screen">
+  <div id="app"></div>
+  <script type="module">
+    import { h, render } from 'https://esm.sh/preact@10';
+    import { useState } from 'https://esm.sh/preact@10/hooks';
+    import htm from 'https://esm.sh/htm@3';
+    const html = htm.bind(h);
+
+    // ── Data ──────────────────────────────────────────────────
+
+    const buggySkills = [
+      {
+        title: "The Silent Skill",
+        symptom: "This skill never fires automatically. Users have to type /data-viz every time.",
+        frontmatter: [
+          { key: "name", val: "data-viz", bug: false },
+          { key: "description", val: '"Helps with data."', bug: true, fix: '"Generate interactive data visualizations and charts from CSV, JSON, or database queries. Use when the user wants charts, dashboards, graphs, or asks to visualize, plot, or display data."' },
+        ],
+        body: "# Data Visualization\n\n## Instructions\n1. Read the data source\n2. Detect column types\n3. Suggest chart types\n4. Generate interactive HTML with Chart.js\n5. Save to output file\n\n## Supported formats\nCSV, JSON, SQLite, PostgreSQL",
+        bugCount: 1,
+        bugs: ["The description is too vague — \"Helps with data\" gives Claude no routing signal. It needs specific actions (generate visualizations) and trigger phrases (charts, dashboards, plot, visualize)."],
+        concept: "Description-First Design (Module 1)",
+      },
+      {
+        title: "The Context Bomb",
+        symptom: "This skill works but makes Claude noticeably slower. Other skills start behaving worse when this one is installed.",
+        frontmatter: [
+          { key: "name", val: "full-stack-guide", bug: false },
+          { key: "description", val: '"Complete full-stack development guide covering React, Node.js, PostgreSQL, Docker, Kubernetes, CI/CD, testing, security, performance, accessibility, i18n, monitoring, logging, and deployment best practices. Use for any web development task."', bug: true, fix: '"Full-stack development conventions for this project. Use when setting up new services, writing API endpoints, or configuring infrastructure."' },
+        ],
+        body: "[Imagine 2000 lines of instructions covering every topic listed in the description, all inline, no references/ directory]",
+        bugCount: 2,
+        bugs: [
+          "Description is 250+ characters of keyword soup. It triggers on nearly everything (\"any web development task\") and crowds the shared description budget.",
+          "2000 lines of instructions should be a Thin Router pattern — a lean SKILL.md routing to 15+ reference files. All inline means every invocation loads everything, whether the user needs React help or Docker help."
+        ],
+        concept: "Progressive Disclosure + Context Economics (Module 2)",
+      },
+      {
+        title: "The Friendly Fire",
+        symptom: 'User types "Create a plan to lint the src directory." The /lint skill fires instead of /planner.',
+        frontmatter: [
+          { key: "name", val: "planner", bug: false },
+          { key: "description", val: '"Create plans for development tasks. Use when user says things like \\'create a plan\\', \\'plan this out\\', or \\'help me plan\\'."', bug: true, fix: '"Create step-by-step implementation plans for development tasks. Use when user wants to break down a feature, architect a solution, or scope work before coding. Do NOT use for direct execution of linting, testing, or deployment."' },
+        ],
+        body: "# Planner\n1. Analyze the request\n2. Break into subtasks\n3. Identify dependencies\n4. Create timeline\n5. Output plan.md",
+        bugCount: 1,
+        bugs: ["The description triggers on the phrase \"create a plan\" but the user's intent is linting, not planning. The word \"plan\" appears but the action is \"lint.\" The description needs to be more specific about WHAT kind of planning, and should exclude adjacent skills' domains."],
+        concept: "Composability + Skill Collision (Module 3)",
+      },
+      {
+        title: "The Dangerous Default",
+        symptom: "This skill auto-triggers when Claude thinks it's relevant. Last week it ran a deployment while the user was just asking about deploy configs.",
+        frontmatter: [
+          { key: "name", val: "deploy-prod", bug: false },
+          { key: "description", val: '"Deploy applications to production. Use when deploying, pushing to prod, or releasing."', bug: false },
+          { key: "allowed-tools", val: '"Read Write Bash Edit Glob Grep"', bug: true, fix: '"Read Bash(npm run deploy:*) Bash(git push *)"' },
+        ],
+        body: "# Production Deployment\n1. Run test suite\n2. Build application\n3. Push to production\n4. Verify health checks",
+        bugCount: 2,
+        bugs: [
+          "Missing disable-model-invocation: true. A deployment skill should NEVER auto-trigger. The user must explicitly type /deploy-prod.",
+          "allowed-tools is way too broad. Full Write + Bash + Edit access means Claude can modify any file and run any command when this skill is active. Scope to specific commands: Bash(npm run deploy:*) Bash(git push *)."
+        ],
+        concept: "Autonomy Control Surface (Module 3)",
+      },
+      {
+        title: "The Identity Crisis",
+        symptom: "The team has this skill AND a CLAUDE.md with similar rules. Sometimes Claude follows one, sometimes the other. Behavior is inconsistent.",
+        frontmatter: [
+          { key: "name", val: "code-style", bug: false },
+          { key: "description", val: '"Enforce code style: 2-space indent, single quotes, no semicolons, functional components."', bug: true, fix: "Move these rules to CLAUDE.md instead. Style rules that should apply EVERY session belong in CLAUDE.md, not a skill that may or may not trigger." },
+        ],
+        body: "# Code Style\n- 2-space indentation\n- Single quotes\n- No semicolons\n- Functional components only\n- Named exports\n- Barrel files for directories",
+        bugCount: 1,
+        bugs: ["Style rules that apply to ALL code in ALL sessions belong in CLAUDE.md, not a skill. CLAUDE.md loads every session. Skills load on demand. Having the same rules in both means they sometimes conflict (if the skill version is slightly different) and the skill version only applies when triggered."],
+        concept: "Skills vs CLAUDE.md (Module 2)",
+      },
+    ];
+
+    const testingSteps = [
+      { name: "Triggering Tests", desc: "Does the skill fire when it should? Does it stay silent when it shouldn't?", tests: ["10-20 queries that SHOULD trigger", "5-10 queries that should NOT trigger", "Paraphrased requests (different wording, same intent)"], icon: "🎯" },
+      { name: "Functional Tests", desc: "When the skill fires, does it produce correct output?", tests: ["Happy path with standard input", "Edge cases (empty input, huge files, missing data)", "Error handling (API down, invalid format)"], icon: "⚙️" },
+      { name: "Baseline Comparison", desc: "Is the skill actually better than no skill at all?", tests: ["Same task with skill enabled vs disabled", "Compare: tool calls, token usage, output quality", "If baseline is equivalent, the skill adds no value"], icon: "📊" },
+    ];
+
+    const ecosystemQuiz = [
+      {
+        scenario: "Your team's coding standards: 2-space indent, TypeScript strict, no any types. Should apply to every conversation.",
+        options: [
+          { name: "CLAUDE.md", correct: true, why: "Loaded every session automatically. Style rules that always apply belong here. No trigger needed." },
+          { name: "Skill", correct: false, why: "Skills load on demand. Style rules that must always apply shouldn't depend on triggering." },
+          { name: "Hook", correct: false, why: "Hooks run scripts on events (pre-commit, post-edit). Good for enforcement, but rules need to be in Claude's context first." },
+          { name: "Subagent", correct: false, why: "Subagents are for delegated tasks with separate context. Style rules aren't a task." },
+        ]
+      },
+      {
+        scenario: "Every file edit should run ESLint automatically. No exceptions, no forgetting.",
+        options: [
+          { name: "Hook", correct: true, why: "Hooks are deterministic — they run on every tool event. A PostToolUse hook on Edit/Write guarantees ESLint runs. CLAUDE.md rules are advisory; hooks are enforced." },
+          { name: "CLAUDE.md", correct: false, why: "CLAUDE.md instructions are advisory. Claude might forget to run the linter during a long session. Hooks guarantee it." },
+          { name: "Skill", correct: false, why: "Skills are invoked, not triggered by events. You can't make a skill run after every file edit." },
+          { name: "Subagent", correct: false, why: "Subagents are for isolated tasks, not event-driven automation." },
+        ]
+      },
+      {
+        scenario: "A multi-step PR review workflow: read the diff, check for security issues, verify test coverage, write review comments.",
+        options: [
+          { name: "Skill", correct: true, why: "A defined workflow with multiple steps and specific instructions. Skills capture this expertise and make it repeatable with /review-pr." },
+          { name: "CLAUDE.md", correct: false, why: "Too specific for every-session context. This workflow only matters when reviewing PRs, not when writing code or debugging." },
+          { name: "Hook", correct: false, why: "Hooks trigger on tool events, not on user commands. A PR review is user-initiated, not event-driven." },
+          { name: "Subagent", correct: false, why: "A subagent could execute the review, but the workflow definition belongs in a skill. The skill might USE a subagent via context: fork." },
+        ]
+      },
+      {
+        scenario: "Analyze the entire codebase for unused exports. Needs to read 500+ files without polluting the main conversation.",
+        options: [
+          { name: "Subagent", correct: true, why: "500 files would fill the context window. A subagent (or a skill with context: fork) runs in separate context and returns a summary. The key need is context isolation." },
+          { name: "Skill", correct: false, why: "A skill with context: fork would work. But the core requirement is the subagent pattern — isolated execution with summary return. A regular skill would pollute context." },
+          { name: "CLAUDE.md", correct: false, why: "This is a task, not a rule. CLAUDE.md is for persistent context, not one-off analysis." },
+          { name: "Hook", correct: false, why: "Not event-driven. This is an on-demand analysis task." },
+        ]
+      },
+    ];
+
+    // ── Shared Components ────────────────────────────────────
+
+    function ProgressBar({ current, total }) {
+      const pct = ((current + 1) / total) * 100;
+      return html`
+        <div class="fixed top-0 left-0 right-0 z-50 bg-slate-950/80 backdrop-blur-sm border-b border-slate-800">
+          <div class="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between">
+            <a href="index.html" class="text-slate-500 hover:text-slate-300 text-sm transition">← Course Overview</a>
+            <span class="text-slate-500 text-sm font-medium">Module 4 of 4</span>
+            <span class="text-slate-500 text-sm">${current + 1} / ${total}</span>
+          </div>
+          <div class="h-0.5 bg-slate-800"><div class="h-full bg-rose-500 transition-all duration-500" style=${{ width: pct + '%' }}></div></div>
+        </div>
+      `;
+    }
+
+    function Nav({ section, total, setSection }) {
+      return html`
+        <div class="flex justify-between items-center mt-12 pt-8 border-t border-slate-800">
+          ${section > 0
+            ? html`<button onClick=${() => setSection(section - 1)} class="text-slate-400 hover:text-white transition">← Previous</button>`
+            : html`<a href="03-autonomy-control-surface.html" class="text-slate-400 hover:text-white transition">← Module 3</a>`}
+          ${section < total - 1
+            ? html`<button onClick=${() => setSection(section + 1)} class="px-6 py-2.5 rounded-lg font-medium transition bg-rose-600 hover:bg-rose-500 text-white">Next →</button>`
+            : html`<a href="index.html" class="px-6 py-2.5 rounded-lg font-medium bg-rose-600 hover:bg-rose-500 text-white transition">Back to Course Overview →</a>`}
+        </div>
+      `;
+    }
+
+    // ── Section 0: Title ─────────────────────────────────────
+
+    function TitleSection() {
+      return html`
+        <div class="text-center py-16">
+          <div class="text-rose-400 font-mono text-sm tracking-widest mb-4">MODULE 4 OF 4</div>
+          <h1 class="text-5xl font-extrabold text-white mb-6 tracking-tight">The Anti-Patterns Lab</h1>
+          <p class="text-xl text-slate-400 max-w-xl mx-auto leading-relaxed">Debug broken skills. Every bug maps to a concept from Modules 1-3.</p>
+        </div>
+      `;
+    }
+
+    // ── Section 1: Debug Lab ─────────────────────────────────
+
+    function DebugLab() {
+      const [caseIdx, setCaseIdx] = useState(0);
+      const [foundBugs, setFoundBugs] = useState([]);
+      const [revealed, setRevealed] = useState(false);
+      const done = caseIdx >= buggySkills.length;
+      const c = buggySkills[caseIdx];
+
+      function toggleBug(idx) {
+        if (revealed) return;
+        setFoundBugs(b => b.includes(idx) ? b.filter(i => i !== idx) : [...b, idx]);
+      }
+
+      function reveal() { setRevealed(true); }
+
+      function nextCase() {
+        setCaseIdx(i => i + 1);
+        setFoundBugs([]);
+        setRevealed(false);
+      }
+
+      // Build clickable lines from frontmatter
+      const allLines = c ? [...c.frontmatter.map((f, i) => ({ type: 'fm', idx: i, ...f })) ] : [];
+
+      return html`
+        <div>
+          <h2 class="text-3xl font-bold text-white mb-2">Debug Lab</h2>
+          <p class="text-slate-400 mb-8">Each case is a broken skill from the wild. Read the symptom, find the bug(s) in the frontmatter, then reveal the fix.</p>
+
+          ${!done && html`
+            <div class="fade-in" key=${caseIdx}>
+              <div class="flex justify-between text-sm text-slate-500 mb-4">
+                <span>Case ${caseIdx + 1} of ${buggySkills.length}: ${c.title}</span>
+                <span>${c.bugCount} bug${c.bugCount > 1 ? 's' : ''} to find</span>
+              </div>
+
+              <div class="bg-red-950/30 rounded-lg p-4 mb-6 border border-red-800/40">
+                <div class="text-red-400 font-mono text-xs mb-1">SYMPTOM</div>
+                <p class="text-white text-sm">${c.symptom}</p>
+              </div>
+
+              <div class="bg-slate-800 rounded-lg border border-slate-700 mb-4 overflow-hidden">
+                <div class="px-4 py-2 bg-slate-900 border-b border-slate-700 flex items-center gap-2">
+                  <span class="text-rose-400 font-mono text-sm">SKILL.md</span>
+                  <span class="text-slate-500 text-xs">— click buggy lines to flag them</span>
+                </div>
+                <div class="p-4 font-mono text-sm">
+                  <div class="text-slate-600">---</div>
+                  ${c.frontmatter.map((f, i) => {
+                    const flagged = foundBugs.includes(i);
+                    const isBug = f.bug;
+                    const showResult = revealed;
+                    let cls = "px-2 py-1 -mx-2 rounded cursor-pointer transition ";
+                    if (showResult && isBug) cls += "bg-red-950/40 border border-red-700/50";
+                    else if (showResult && flagged && !isBug) cls += "bg-amber-950/30 border border-amber-700/30";
+                    else if (flagged) cls += "bg-rose-950/30 border border-rose-700/50";
+                    else cls += "hover:bg-slate-700/50";
+                    return html`
+                      <div key=${i} onClick=${() => toggleBug(i)} class=${cls}>
+                        <span class="text-purple-400">${f.key}:</span> <span class=${flagged && !revealed ? "text-rose-300" : "text-slate-300"}>${f.val}</span>
+                        ${flagged && !revealed && html`<span class="text-rose-400 text-xs ml-2">flagged</span>`}
+                        ${showResult && isBug && html`<span class="text-red-400 text-xs ml-2">BUG</span>`}
+                        ${showResult && flagged && !isBug && html`<span class="text-amber-400 text-xs ml-2">not a bug</span>`}
+                      </div>
+                    `;
+                  })}
+                  <div class="text-slate-600">---</div>
+                  <div class="mt-2 text-slate-500 text-xs whitespace-pre-wrap max-h-24 overflow-hidden relative">
+                    ${c.body}
+                    <div class="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-slate-800"></div>
+                  </div>
+                </div>
+              </div>
+
+              ${!revealed && html`
+                <div class="text-center">
+                  <button onClick=${reveal} class="px-6 py-2.5 bg-rose-600 hover:bg-rose-500 rounded-lg font-medium text-white transition">
+                    Reveal (${foundBugs.length} flagged)
+                  </button>
+                </div>
+              `}
+
+              ${revealed && html`
+                <div class="space-y-3 fade-in">
+                  ${c.bugs.map((bug, i) => html`
+                    <div key=${i} class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+                      <div class="flex items-center gap-2 mb-2">
+                        <span class="text-red-400 font-bold text-sm">Bug ${i + 1}:</span>
+                        <span class="text-xs text-slate-500 font-mono">${c.concept}</span>
+                      </div>
+                      <p class="text-slate-300 text-sm mb-3">${bug}</p>
+                      ${c.frontmatter.filter(f => f.bug)[i] && c.frontmatter.filter(f => f.bug)[i].fix && html`
+                        <div class="bg-green-950/20 rounded p-3 border border-green-800/30">
+                          <div class="text-green-400 text-xs font-mono mb-1">FIX</div>
+                          <p class="text-green-200 text-xs font-mono">${c.frontmatter.filter(f => f.bug)[i].fix}</p>
+                        </div>
+                      `}
+                    </div>
+                  `)}
+                  <div class="text-center mt-4">
+                    <button onClick=${nextCase} class="px-6 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium text-white transition">
+                      ${caseIdx < buggySkills.length - 1 ? "Next Case →" : "See Results →"}
+                    </button>
+                  </div>
+                </div>
+              `}
+            </div>
+          `}
+
+          ${done && html`
+            <div class="text-center fade-in">
+              <div class="text-2xl font-bold text-white mb-4">Lab Complete</div>
+              <p class="text-slate-400 mb-6">Every bug you debugged maps back to a concept from earlier modules. Anti-patterns aren't random — they're predictable failures of the same few principles.</p>
+              <div class="bg-slate-800 rounded-lg p-5 border border-slate-700 text-left max-w-md mx-auto">
+                <p class="text-white font-medium text-sm mb-3">The top 3 causes of broken skills:</p>
+                <div class="space-y-2 text-sm text-slate-300">
+                  <div><span class="text-rose-400 font-bold">1.</span> Vague descriptions → skill never fires (Module 1)</div>
+                  <div><span class="text-rose-400 font-bold">2.</span> Everything inline → context bloat (Module 2)</div>
+                  <div><span class="text-rose-400 font-bold">3.</span> Missing invocation control → dangerous auto-triggers (Module 3)</div>
+                </div>
+              </div>
+            </div>
+          `}
+        </div>
+      `;
+    }
+
+    // ── Section 2: Testing Methodology ───────────────────────
+
+    function TestingMethodology() {
+      const [activeStep, setActiveStep] = useState(null);
+      const [quizAnswer, setQuizAnswer] = useState(null);
+
+      return html`
+        <div>
+          <h2 class="text-3xl font-bold text-white mb-2">Testing Methodology</h2>
+          <p class="text-slate-400 mb-8">Most people write a skill, try it once, and ship it. That's not testing — that's hoping. Real testing has three phases:</p>
+
+          <div class="space-y-3 mb-8">
+            ${testingSteps.map((step, i) => html`
+              <button key=${i} onClick=${() => setActiveStep(activeStep === i ? null : i)}
+                class=${"w-full text-left rounded-lg border p-5 transition " +
+                  (activeStep === i ? "border-rose-500 bg-rose-950/20" : "border-slate-700 bg-slate-800 hover:border-slate-600")}>
+                <div class="flex items-center gap-3 mb-1">
+                  <span class="text-2xl">${step.icon}</span>
+                  <span class="text-white font-semibold">${step.name}</span>
+                </div>
+                <p class="text-slate-400 text-sm ml-10">${step.desc}</p>
+                ${activeStep === i && html`
+                  <div class="mt-4 ml-10 fade-in">
+                    <div class="text-slate-500 text-xs mb-2">TEST CASES</div>
+                    <div class="space-y-1">
+                      ${step.tests.map(t => html`
+                        <div class="flex items-start gap-2 text-sm text-slate-300">
+                          <span class="text-rose-400 mt-0.5 shrink-0">•</span> ${t}
+                        </div>
+                      `)}
+                    </div>
+                  </div>
+                `}
+              </button>
+            `)}
+          </div>
+
+          <div class="bg-slate-800 rounded-lg p-5 border border-slate-700">
+            <p class="text-white font-medium mb-3 text-sm">Quick check: Why is baseline comparison the most important test?</p>
+            <div class="space-y-2">
+              ${[
+                { id: "a", text: "It checks if the skill has bugs", correct: false, feedback: "Functional tests check for bugs. Baseline comparison checks something more fundamental." },
+                { id: "b", text: "It proves the skill adds value beyond Claude's default behavior", correct: true, feedback: "Without a baseline, a \"good\" result might just be Claude's default. Your skill might add nothing — or even make things worse. Only a comparison reveals the truth." },
+                { id: "c", text: "It measures token usage", correct: false, feedback: "Token usage is one metric, but the core purpose is proving the skill makes output BETTER, not just different." },
+              ].map(o => {
+                const show = quizAnswer !== null;
+                const selected = quizAnswer === o.id;
+                let cls = "border-slate-600 hover:border-slate-500 cursor-pointer";
+                if (show && o.correct) cls = "border-green-500 bg-green-950/20";
+                else if (show && selected && !o.correct) cls = "border-red-500 bg-red-950/20";
+                else if (show) cls = "border-slate-800 opacity-50";
+                return html`
+                  <button key=${o.id} onClick=${() => !quizAnswer && setQuizAnswer(o.id)} disabled=${!!quizAnswer}
+                    class=${"w-full text-left text-sm p-3 rounded-lg border transition " + cls + (quizAnswer ? " cursor-default" : "")}>
+                    ${o.text}
+                    ${show && (selected || o.correct) && html`
+                      <p class="text-xs mt-1 ${o.correct ? 'text-green-300/80' : 'text-red-300/80'} fade-in">${o.feedback}</p>
+                    `}
+                  </button>
+                `;
+              })}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ── Section 3: Ecosystem Decision Framework ──────────────
+
+    function EcosystemDecision() {
+      const [round, setRound] = useState(0);
+      const [pick, setPick] = useState(null);
+      const [score, setScore] = useState(0);
+      const done = round >= ecosystemQuiz.length;
+      const q = ecosystemQuiz[round];
+
+      function choose(name) {
+        setPick(name);
+        const opt = q.options.find(o => o.name === name);
+        if (opt && opt.correct) setScore(s => s + 1);
+      }
+
+      return html`
+        <div>
+          <h2 class="text-3xl font-bold text-white mb-2">Where Does It Live?</h2>
+          <p class="text-slate-400 mb-4">Skills aren't the only way to extend Claude. Four tools, different purposes:</p>
+
+          <div class="grid grid-cols-4 gap-2 mb-8">
+            ${[
+              { name: "CLAUDE.md", desc: "Every-session context", icon: "📋" },
+              { name: "Skill", desc: "On-demand workflows", icon: "⚡" },
+              { name: "Hook", desc: "Event-driven automation", icon: "🪝" },
+              { name: "Subagent", desc: "Isolated execution", icon: "🔀" },
+            ].map(t => html`
+              <div key=${t.name} class="bg-slate-800 rounded-lg p-3 border border-slate-700 text-center">
+                <div class="text-xl mb-1">${t.icon}</div>
+                <div class="text-white font-medium text-xs">${t.name}</div>
+                <div class="text-slate-500 text-xs">${t.desc}</div>
+              </div>
+            `)}
+          </div>
+
+          ${!done && html`
+            <div class="fade-in" key=${round}>
+              <div class="flex justify-between text-sm text-slate-500 mb-4">
+                <span>Scenario ${round + 1} of ${ecosystemQuiz.length}</span>
+                <span>${score} correct</span>
+              </div>
+              <div class="bg-blue-950/40 rounded-lg p-4 mb-6 border border-blue-800/50">
+                <p class="text-white text-sm">${q.scenario}</p>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                ${q.options.map(o => {
+                  const selected = pick === o.name;
+                  const show = pick !== null;
+                  let cls = "border-slate-700 hover:border-slate-500 cursor-pointer";
+                  if (show && o.correct) cls = "border-green-500 bg-green-950/20";
+                  else if (show && selected && !o.correct) cls = "border-red-500 bg-red-950/20";
+                  else if (show) cls = "border-slate-800 opacity-50";
+                  return html`
+                    <button key=${o.name} onClick=${() => !pick && choose(o.name)} disabled=${!!pick}
+                      class=${"text-left rounded-lg p-4 border transition " + cls + (pick ? " cursor-default" : "")}>
+                      <div class="text-white font-medium text-sm">${o.name}</div>
+                      ${show && (selected || o.correct) && html`
+                        <p class="text-xs mt-2 ${o.correct ? 'text-green-300/80' : 'text-red-300/80'} fade-in">${o.why}</p>
+                      `}
+                    </button>
+                  `;
+                })}
+              </div>
+              ${pick && html`
+                <div class="text-center mt-4">
+                  <button onClick=${() => { setPick(null); setRound(r => r + 1); }} class="px-6 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium text-white transition">Next →</button>
+                </div>
+              `}
+            </div>
+          `}
+
+          ${done && html`
+            <div class="text-center fade-in">
+              <div class="text-4xl font-bold text-white mb-2">${score} / ${ecosystemQuiz.length}</div>
+              <p class="text-slate-400 mb-4">The heuristic:</p>
+              <div class="bg-slate-800 rounded-lg p-5 border border-slate-700 text-left max-w-md mx-auto text-sm text-slate-300 space-y-2">
+                <div>Always applies, every session? → <span class="text-amber-400 font-medium">CLAUDE.md</span></div>
+                <div>Defined workflow, triggered by intent? → <span class="text-amber-400 font-medium">Skill</span></div>
+                <div>Must happen on every event, no exceptions? → <span class="text-amber-400 font-medium">Hook</span></div>
+                <div>Needs context isolation (many files, expensive)? → <span class="text-amber-400 font-medium">Subagent</span></div>
+              </div>
+            </div>
+          `}
+        </div>
+      `;
+    }
+
+    // ── Section 4: Bridge / Course Complete ───────────────────
+
+    function CourseComplete() {
+      return html`
+        <div class="text-center py-8">
+          <div class="max-w-lg mx-auto">
+            <div class="text-rose-400 font-mono text-sm tracking-widest mb-4">COURSE COMPLETE</div>
+            <h2 class="text-4xl font-extrabold text-white mb-6">You Can Build Production Skills Now</h2>
+            <div class="text-left bg-slate-800 rounded-lg p-6 border border-slate-700 mb-8">
+              <p class="text-white font-medium mb-4">What you've learned across 4 modules:</p>
+              <div class="space-y-4 text-sm">
+                <div class="flex gap-3">
+                  <span class="text-amber-400 font-bold shrink-0">M1</span>
+                  <span class="text-slate-300"><span class="text-white font-medium">The Routing Problem</span> — The description IS the skill. WHAT + WHEN formula. Claude uses semantic reasoning, not keywords.</span>
+                </div>
+                <div class="flex gap-3">
+                  <span class="text-blue-400 font-bold shrink-0">M2</span>
+                  <span class="text-slate-300"><span class="text-white font-medium">Information Architecture</span> — 3 levels of progressive disclosure. Context budget. 5 architecture patterns matched to use cases.</span>
+                </div>
+                <div class="flex gap-3">
+                  <span class="text-emerald-400 font-bold shrink-0">M3</span>
+                  <span class="text-slate-300"><span class="text-white font-medium">Autonomy Control Surface</span> — 6 coordinated controls. Per-step constraint design: Procedural, Criteria, Template, Guardrail.</span>
+                </div>
+                <div class="flex gap-3">
+                  <span class="text-rose-400 font-bold shrink-0">M4</span>
+                  <span class="text-slate-300"><span class="text-white font-medium">Anti-Patterns Lab</span> — Diagnosed real bugs. Testing methodology. Ecosystem decision framework.</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-slate-800/50 rounded-lg p-6 border border-slate-700 mb-6">
+              <p class="text-white font-medium mb-3">Your next step: build a skill.</p>
+              <div class="text-left text-sm text-slate-400 space-y-2">
+                <div>1. Pick a repeatable workflow you do at least weekly</div>
+                <div>2. Write the description FIRST (WHAT + WHEN)</div>
+                <div>3. Write the body — under 500 lines, link to references/</div>
+                <div>4. Set the autonomy controls for your use case</div>
+                <div>5. Test: triggering, functional, and baseline comparison</div>
+                <div>6. Iterate based on what breaks</div>
+              </div>
+            </div>
+
+            <div class="flex gap-3 justify-center">
+              <a href="index.html" class="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium text-white transition">Course Overview</a>
+              <a href="01-the-routing-problem.html" class="px-6 py-2.5 bg-rose-600 hover:bg-rose-500 rounded-lg font-medium text-white transition">Review from Start</a>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ── App ──────────────────────────────────────────────────
+
+    const sections = [
+      { component: TitleSection },
+      { component: DebugLab },
+      { component: TestingMethodology },
+      { component: EcosystemDecision },
+      { component: CourseComplete },
+    ];
+
+    function App() {
+      const [section, setSection] = useState(0);
+      const S = sections[section].component;
+      return html`
+        <div>
+          <${ProgressBar} current=${section} total=${sections.length} />
+          <div class="max-w-3xl mx-auto px-6 pt-20 pb-12">
+            <div class="fade-in" key=${section}><${S} /></div>
+            <${Nav} section=${section} total=${sections.length} setSection=${setSection} />
+          </div>
+        </div>
+      `;
+    }
+
+    render(html`<${App} />`, document.getElementById('app'));
+  </script>
+</body>
+</html>

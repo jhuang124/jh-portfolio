@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fog-of-War Explorer — Component Demo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['DM Sans', 'sans-serif'], mono: ['DM Mono', 'monospace'] } } }
+    }
+  </script>
+  <style>
+    .grain { background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); }
+    @keyframes fogPulse { 0%,100% { opacity: 0.6; } 50% { opacity: 0.8; } }
+    @keyframes revealIn { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: scale(1); } }
+    @keyframes connectionDraw { from { stroke-dashoffset: 200; } to { stroke-dashoffset: 0; } }
+    .fog-pulse { animation: fogPulse 3s ease-in-out infinite; }
+    .reveal-in { animation: revealIn 0.5s cubic-bezier(.22,.68,0,.71) forwards; }
+    .connection-draw { stroke-dasharray: 200; animation: connectionDraw 0.8s cubic-bezier(.22,.68,0,.71) forwards; }
+  </style>
+</head>
+<body class="bg-[#0a0e1a] text-slate-200 font-sans grain min-h-screen">
+
+  <div class="max-w-5xl mx-auto px-8 pt-20 pb-8">
+    <div class="text-[#94a3b8] font-mono text-xs tracking-[0.25em] mb-3 uppercase">Component 16</div>
+    <h1 class="text-4xl font-bold text-white mb-3 tracking-tight">Fog-of-War Explorer</h1>
+    <p class="text-slate-400 max-w-xl leading-relaxed">Click the foggy regions to reveal the Claude Skills ecosystem. Each reveal exposes connections to previously discovered nodes. Explore at your own pace until the full map emerges.</p>
+  </div>
+
+  <div id="app"></div>
+
+  <div class="max-w-5xl mx-auto px-8 py-20">
+    <div class="border-t border-slate-800 pt-12">
+      <h2 class="text-lg font-bold text-white mb-6">Usage</h2>
+      <pre class="bg-[#0d1320] rounded-xl p-6 font-mono text-sm text-slate-300 border border-slate-800/60 overflow-x-auto"><code>const regions = [
+  { id: 'skill-md', label: 'SKILL.md', x: 400, y: 200,
+    description: 'The main skill file.' },
+  // ...more regions
+];
+const connections = [
+  { from: 'skill-md', to: 'frontmatter', label: 'contains' },
+  // ...more connections
+];
+
+html\`&lt;\${FogOfWarExplorer} regions=\${regions} connections=\${connections} />\`</code></pre>
+    </div>
+  </div>
+
+  <script type="module">
+    import { h, render } from 'https://esm.sh/preact@10';
+    import { useState, useEffect, useRef, useCallback } from 'https://esm.sh/preact@10/hooks';
+    import htm from 'https://esm.sh/htm@3';
+    const html = htm.bind(h);
+
+    // --- Data ---
+    const regions = [
+      { id: 'skill-md', label: 'SKILL.md', x: 420, y: 120, description: 'The primary skill file. A two-part document: machine-readable frontmatter on top, free-form body below.', color: '#94a3b8' },
+      { id: 'frontmatter', label: 'Frontmatter', x: 240, y: 230, description: 'YAML metadata block. Contains the description (routing label), allowed-tools, and other machine-readable config. Always loaded by Claude.', color: '#60a5fa' },
+      { id: 'body', label: 'Body', x: 600, y: 230, description: 'Free-form markdown instructions. Loaded only when the skill triggers. This is your L2 context \u2014 detailed guidance for execution.', color: '#60a5fa' },
+      { id: 'scripts', label: 'scripts/', x: 750, y: 360, description: 'Executable files the skill can invoke via Bash. Keep logic in scripts, instructions in SKILL.md.', color: '#34d399' },
+      { id: 'references', label: 'references/', x: 560, y: 380, description: 'L3 context: docs, examples, and specs loaded on-demand. Only pulled when needed to conserve the context window.', color: '#34d399' },
+      { id: 'claude-md', label: 'CLAUDE.md', x: 100, y: 370, description: 'Project-level instructions. Always loaded at session start. Complements skills \u2014 use it for global rules, not skill-specific logic.', color: '#fbbf24' },
+      { id: 'hooks', label: 'Hooks', x: 100, y: 180, description: 'Automated triggers (PreToolCall, PostToolCall, etc.) that run without user invocation. Different from skills: hooks are reactive, skills are invoked.', color: '#fb923c' },
+      { id: 'subagents', label: 'Subagents', x: 280, y: 450, description: 'Forked Claude instances that run in parallel. Skills can spawn subagents for concurrent work via the Task tool.', color: '#c084fc' },
+      { id: 'mcp-servers', label: 'MCP Servers', x: 500, y: 500, description: 'External tool providers that extend Claude\'s capabilities. Skills can leverage MCP tools listed in allowed-tools.', color: '#f472b6' },
+      { id: 'plugins', label: 'Plugins', x: 730, y: 480, description: 'Distributable skill bundles. Package multiple skills, hooks, and MCP configs for sharing across teams.', color: '#94a3b8' },
+    ];
+
+    const connections = [
+      { from: 'skill-md', to: 'frontmatter', label: 'contains' },
+      { from: 'skill-md', to: 'body', label: 'contains' },
+      { from: 'body', to: 'references', label: 'links to' },
+      { from: 'body', to: 'scripts', label: 'executes' },
+      { from: 'skill-md', to: 'claude-md', label: 'complements' },
+      { from: 'skill-md', to: 'hooks', label: 'different purpose' },
+      { from: 'skill-md', to: 'subagents', label: 'can fork into' },
+      { from: 'mcp-servers', to: 'skill-md', label: 'enhances' },
+      { from: 'skill-md', to: 'plugins', label: 'packaged into' },
+      { from: 'subagents', to: 'mcp-servers', label: 'can use' },
+    ];
+
+    // --- FogRegion ---
+    function FogRegion({ region, revealed, onClick, canvasOffset }) {
+      const w = 130, h = 56;
+      const rx = region.x - w/2, ry = region.y - h/2;
+
+      if (revealed) {
+        return html\`
+          <g class="reveal-in" style="transform-origin: \${region.x}px \${region.y}px">
+            <rect x=\${rx} y=\${ry} width=\${w} height=\${h} rx="12"
+              fill="#0d1320" stroke=\${region.color} stroke-width="1.5" />
+            <text x=\${region.x} y=\${region.y + 1} text-anchor="middle"
+              dominant-baseline="middle" fill=\${region.color}
+              font-family="DM Mono" font-size="12" font-weight="500">
+              \${region.label}
+            </text>
+          </g>
+        \`;
+      }
+
+      return html\`
+        <g onClick=\${onClick} style="cursor: pointer" class="fog-pulse">
+          <rect x=\${rx} y=\${ry} width=\${w} height=\${h} rx="12"
+            fill="#1e293b" stroke="#334155" stroke-width="1" opacity="0.5" />
+          <rect x=\${rx} y=\${ry} width=\${w} height=\${h} rx="12"
+            fill="url(#fogGradient)" opacity="0.7" />
+          <text x=\${region.x} y=\${region.y + 1} text-anchor="middle"
+            dominant-baseline="middle" fill="#475569"
+            font-family="DM Mono" font-size="11">?</text>
+        </g>
+      \`;
+    }
+
+    // --- Connection line ---
+    function ConnectionLine({ conn, regions: regionList, revealedSet, isNew }) {
+      const from = regionList.find(r => r.id === conn.from);
+      const to = regionList.find(r => r.id === conn.to);
+      if (!from || !to) return null;
+      if (!revealedSet.has(conn.from) || !revealedSet.has(conn.to)) return null;
+
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const mx = (from.x + to.x) / 2;
+      const my = (from.y + to.y) / 2;
+      const cx = mx - dy * 0.15;
+      const cy = my + dx * 0.15;
+
+      return html\`
+        <g>
+          <path d="M \${from.x} \${from.y} Q \${cx} \${cy} \${to.x} \${to.y}"
+            fill="none" stroke="#334155" stroke-width="1.5"
+            class=\${isNew ? 'connection-draw' : ''} opacity="0.6" />
+          <text font-family="DM Mono" font-size="9" fill="#64748b">
+            <textPath href="#conn-\${conn.from}-\${conn.to}" startOffset="50%" text-anchor="middle">
+              \${conn.label}
+            </textPath>
+          </text>
+          <defs>
+            <path id="conn-\${conn.from}-\${conn.to}"
+              d="M \${from.x} \${from.y} Q \${cx} \${cy} \${to.x} \${to.y}" />
+          </defs>
+        </g>
+      \`;
+    }
+
+    // --- DetailPanel ---
+    function DetailPanel({ region }) {
+      if (!region) return null;
+      return html\`
+        <div class="bg-[#0d1320] border border-slate-800/60 rounded-xl p-5 mt-4 reveal-in">
+          <div class="flex items-center gap-3 mb-2">
+            <div class="w-2.5 h-2.5 rounded-full" style="background: \${region.color}"></div>
+            <span class="font-mono text-sm" style="color: \${region.color}">\${region.label}</span>
+          </div>
+          <p class="text-slate-400 text-sm leading-relaxed">\${region.description}</p>
+        </div>
+      \`;
+    }
+
+    // --- Main Component ---
+    function FogOfWarExplorer({ regions: regionData, connections: connData }) {
+      const [revealed, setRevealed] = useState(new Set());
+      const [newConnections, setNewConnections] = useState(new Set());
+      const [selectedRegion, setSelectedRegion] = useState(null);
+      const [revealOrder, setRevealOrder] = useState([]);
+
+      const progress = Math.round((revealed.size / regionData.length) * 100);
+
+      const revealRegion = useCallback((id) => {
+        setRevealed(prev => {
+          const next = new Set(prev);
+          next.add(id);
+
+          // Find new connections
+          const newConns = new Set();
+          connData.forEach(c => {
+            if ((c.from === id && next.has(c.to)) || (c.to === id && next.has(c.from))) {
+              newConns.add(c.from + '-' + c.to);
+            }
+          });
+          setNewConnections(newConns);
+          setTimeout(() => setNewConnections(new Set()), 900);
+
+          return next;
+        });
+        setRevealOrder(prev => [...prev, id]);
+        setSelectedRegion(regionData.find(r => r.id === id));
+      }, [regionData, connData]);
+
+      const revealAll = useCallback(() => {
+        const unrevealed = regionData.filter(r => !revealed.has(r.id));
+        let delay = 0;
+        unrevealed.forEach(r => {
+          setTimeout(() => revealRegion(r.id), delay);
+          delay += 200;
+        });
+      }, [regionData, revealed, revealRegion]);
+
+      const reset = useCallback(() => {
+        setRevealed(new Set());
+        setNewConnections(new Set());
+        setSelectedRegion(null);
+        setRevealOrder([]);
+      }, []);
+
+      return html\`
+        <div class="max-w-5xl mx-auto px-8 pb-12">
+          <!-- Controls -->
+          <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-4">
+              <div class="bg-[#0d1320] border border-slate-800/60 rounded-lg px-4 py-2 flex items-center gap-3">
+                <div class="w-32 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div class="h-full bg-[#94a3b8] rounded-full transition-all duration-500"
+                    style="width: \${progress}%"></div>
+                </div>
+                <span class="font-mono text-xs text-slate-500">\${revealed.size}/\${regionData.length}</span>
+              </div>
+              <span class="font-mono text-xs text-slate-600">
+                \${revealed.size === 0 ? 'Click a region to begin exploring' :
+                  revealed.size === regionData.length ? 'Full map revealed!' :
+                  'Keep exploring...'}
+              </span>
+            </div>
+            <div class="flex gap-2">
+              <button onClick=\${revealAll}
+                class="font-mono text-xs px-4 py-2 rounded-lg border border-slate-800/60 text-slate-400 hover:text-white hover:border-slate-600 transition-all \${revealed.size === regionData.length ? 'opacity-30 pointer-events-none' : ''}">
+                Reveal All
+              </button>
+              <button onClick=\${reset}
+                class="font-mono text-xs px-4 py-2 rounded-lg border border-slate-800/60 text-slate-400 hover:text-white hover:border-slate-600 transition-all \${revealed.size === 0 ? 'opacity-30 pointer-events-none' : ''}">
+                Reset
+              </button>
+            </div>
+          </div>
+
+          <!-- Canvas -->
+          <div class="bg-[#0d1320] border border-slate-800/60 rounded-2xl p-4 relative overflow-hidden">
+            <svg viewBox="0 0 880 580" class="w-full" style="min-height: 400px">
+              <defs>
+                <radialGradient id="fogGradient">
+                  <stop offset="0%" stop-color="#1e293b" stop-opacity="0.3" />
+                  <stop offset="100%" stop-color="#0f172a" stop-opacity="0.8" />
+                </radialGradient>
+                <filter id="glow">
+                  <feGaussianBlur stdDeviation="3" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+
+              <!-- Grid pattern -->
+              \${Array.from({ length: 18 }, (_, i) => html\`
+                <line x1=\${i * 50} y1="0" x2=\${i * 50} y2="580" stroke="#1e293b" stroke-width="0.5" opacity="0.3" />
+              \`)}
+              \${Array.from({ length: 12 }, (_, i) => html\`
+                <line x1="0" y1=\${i * 50} x2="880" y2=\${i * 50} stroke="#1e293b" stroke-width="0.5" opacity="0.3" />
+              \`)}
+
+              <!-- Connections -->
+              \${connData.map(c => html\`
+                <\${ConnectionLine}
+                  conn=\${c}
+                  regions=\${regionData}
+                  revealedSet=\${revealed}
+                  isNew=\${newConnections.has(c.from + '-' + c.to)} />
+              \`)}
+
+              <!-- Regions -->
+              \${regionData.map(r => html\`
+                <\${FogRegion}
+                  region=\${r}
+                  revealed=\${revealed.has(r.id)}
+                  onClick=\${() => !revealed.has(r.id) && revealRegion(r.id)} />
+              \`)}
+            </svg>
+          </div>
+
+          <!-- Detail panel -->
+          <\${DetailPanel} region=\${selectedRegion} />
+
+          <!-- Reveal order -->
+          \${revealOrder.length > 0 && html\`
+            <div class="mt-4 flex flex-wrap gap-2 items-center">
+              <span class="font-mono text-xs text-slate-600 mr-2">Explored:</span>
+              \${revealOrder.map((id, i) => {
+                const r = regionData.find(reg => reg.id === id);
+                return html\`
+                  <button onClick=\${() => setSelectedRegion(r)}
+                    class="font-mono text-xs px-2.5 py-1 rounded-md border transition-all hover:border-slate-600"
+                    style="color: \${r.color}; border-color: \${r.color}33; background: \${r.color}0a">
+                    \${i + 1}. \${r.label}
+                  </button>
+                \`;
+              })}
+            </div>
+          \`}
+        </div>
+      \`;
+    }
+
+    // --- Render ---
+    function App() {
+      return html\`<\${FogOfWarExplorer} regions=\${regions} connections=\${connections} />\`;
+    }
+
+    render(html\`<\${App} />\`, document.getElementById('app'));
+  </script>
+</body>
+</html>

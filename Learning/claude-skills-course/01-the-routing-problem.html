@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 1: The Routing Problem — Claude Skills Course</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .fade-in { animation: fadeIn 0.35s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-200 font-sans min-h-screen">
+  <div id="app"></div>
+  <script type="module">
+    import { h, render } from 'https://esm.sh/preact@10';
+    import { useState, useCallback } from 'https://esm.sh/preact@10/hooks';
+    import htm from 'https://esm.sh/htm@3';
+    const html = htm.bind(h);
+
+    // ── Data ──────────────────────────────────────────────────
+    const routingRounds = [
+      {
+        query: "Generate a PR description from my staged changes",
+        skills: [
+          { id: "a", name: "git-helper", desc: "Helps with Git operations.", correct: false, why: "Too vague. \"Git operations\" could mean anything — commit, branch, merge, rebase. Claude has no reason to pick this over a more specific skill." },
+          { id: "b", name: "pr-writer", desc: "Generate PR descriptions from git diffs. Use when committing, opening PRs, or summarizing staged changes.", correct: true, why: "Specific action (generate PR descriptions) + specific triggers (committing, opening PRs, staged changes). Claude's LLM reasoning matches the user's intent to this description directly." },
+          { id: "c", name: "code-reviewer", desc: "Review code quality and suggest improvements.", correct: false, why: "Wrong task entirely. The user wants to WRITE a description, not REVIEW code." },
+        ],
+        lesson: "Specific descriptions win. Claude doesn't keyword-match — it reasons about which description best matches the user's intent."
+      },
+      {
+        query: "Review this pull request for security issues",
+        skills: [
+          { id: "a", name: "pr-writer", desc: "Generate PR descriptions from git diffs. Use when committing or opening PRs.", correct: false, why: "Shares the keyword \"PR\" but the task is completely different. The user wants to REVIEW, not WRITE. Claude understands this distinction." },
+          { id: "b", name: "security-audit", desc: "Analyze code for security vulnerabilities, injection risks, and auth flaws. Use when reviewing PRs, auditing code, or scanning for OWASP issues.", correct: true, why: "Matches both the activity (security analysis) and the context (PR review). The trigger phrase \"reviewing PRs\" directly matches." },
+          { id: "c", name: "test-runner", desc: "Run the project's test suite and report results.", correct: false, why: "Tests might catch some security issues, but the user specifically asked for security review, not test execution." },
+        ],
+        lesson: "Claude uses semantic understanding, not keyword matching. Sharing the word \"PR\" doesn't make a skill match — the INTENT has to align."
+      },
+      {
+        query: "Help me set up this new API endpoint the right way",
+        skills: [
+          { id: "a", name: "express-scaffold", desc: "Express.js boilerplate and project scaffolding.", correct: false, why: "Scaffolding is for new projects. The user has an existing project and wants to add an endpoint \"the right way\" — meaning conventions." },
+          { id: "b", name: "api-conventions", desc: "REST API conventions for this codebase. Use when writing endpoints, creating routes, or adding new services.", correct: true, why: "\"The right way\" signals the user wants to follow conventions. This skill's description matches that intent, plus the specific trigger \"writing endpoints.\"" },
+          { id: "c", name: "http-debugger", desc: "Debug HTTP request/response issues and trace API errors.", correct: false, why: "The user isn't debugging — they're building. Claude understands the difference between creating and fixing." },
+        ],
+        lesson: "Claude interprets implicit intent. \"The right way\" maps to conventions/best practices, not boilerplate or debugging. Your description should anticipate how users actually phrase requests."
+      }
+    ];
+
+    const tfStatements = [
+      { text: "Skills are executable code that runs when triggered", answer: false, explain: "Skills are markdown instructions that modify Claude's conversation context. The only code that runs is in optional scripts/ (via the Bash tool)." },
+      { text: "The description field determines whether Claude loads a skill", answer: true, explain: "The description is the routing label. Claude reads all descriptions and uses LLM reasoning to pick the best match." },
+      { text: "Claude uses keyword matching to select which skill to load", answer: false, explain: "Pure LLM semantic reasoning. Claude understands intent, not keywords. That's why a well-phrased description beats a keyword-stuffed one." },
+      { text: "A skill's full instructions are always loaded in Claude's context", answer: false, explain: "Only the description is always loaded (Level 1). The full SKILL.md body loads only when the skill is triggered (Level 2). Reference files load on demand (Level 3)." },
+      { text: "Skills can bundle Python scripts, templates, and reference docs", answer: true, explain: "A skill directory can include scripts/, references/, and assets/ alongside SKILL.md. These are bundled resources, not the skill itself." },
+    ];
+
+    const descPairs = [
+      {
+        bad: { text: "Handles project management tasks.", problems: ["No action verb", "No trigger conditions", "Too vague — could be anything"] },
+        good: { text: "Set up and manage Linear project workspaces. Use when creating projects, planning sprints, or organizing tasks in Linear.", strengths: ["Specific action: \"Set up and manage\"", "Specific tool: \"Linear\"", "Clear triggers: \"creating projects, planning sprints\""] },
+        useCase: "A skill that helps set up projects in Linear"
+      },
+      {
+        bad: { text: "Creates sophisticated documentation systems.", problems: ["Vague superlative (\"sophisticated\")", "No tool/domain context", "No trigger phrases"] },
+        good: { text: "Generate API documentation from code comments. Use when documenting endpoints, creating SDK guides, or updating API references.", strengths: ["Specific output: \"API documentation\"", "Specific input: \"code comments\"", "Clear triggers: \"documenting endpoints, SDK guides\""] },
+        useCase: "A skill that generates API docs"
+      }
+    ];
+
+    const descExercise = {
+      useCase: "A skill that helps deploy a Next.js app to Vercel",
+      options: [
+        { id: "a", text: "Deploys applications to cloud platforms.", score: 1, feedback: "Too vague. Which platform? What kind of app? Claude sees this alongside 20 other skills and has no reason to pick it." },
+        { id: "b", text: "Deploy Next.js applications to Vercel. Use when pushing to production, setting up preview deployments, or configuring environment variables on Vercel.", score: 3, feedback: "Specific framework (Next.js), specific platform (Vercel), specific triggers (pushing to production, preview deployments, env vars). Claude can match this to user intent with high confidence." },
+        { id: "c", text: "Vercel deployment helper for Next.js. Handles deploys.", score: 2, feedback: "Names the tools but the trigger is weak. \"Handles deploys\" doesn't tell Claude WHEN to load this. Better than option A, but misses the WHEN half of the formula." },
+      ]
+    };
+
+    // ── Utility Components ───────────────────────────────────
+
+    function ProgressBar({ current, total }) {
+      const pct = ((current + 1) / total) * 100;
+      return html`
+        <div class="fixed top-0 left-0 right-0 z-50 bg-slate-950/80 backdrop-blur-sm border-b border-slate-800">
+          <div class="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between">
+            <a href="index.html" class="text-slate-500 hover:text-slate-300 text-sm transition">← Course Overview</a>
+            <span class="text-slate-500 text-sm font-medium">Module 1 of 4</span>
+            <span class="text-slate-500 text-sm">${current + 1} / ${total}</span>
+          </div>
+          <div class="h-0.5 bg-slate-800"><div class="h-full bg-amber-500 transition-all duration-500" style=${{ width: pct + '%' }}></div></div>
+        </div>
+      `;
+    }
+
+    function Nav({ section, total, setSection, canProceed }) {
+      return html`
+        <div class="flex justify-between items-center mt-12 pt-8 border-t border-slate-800">
+          ${section > 0
+            ? html`<button onClick=${() => setSection(section - 1)} class="text-slate-400 hover:text-white transition">← Previous</button>`
+            : html`<div />`}
+          ${section < total - 1
+            ? html`<button onClick=${() => setSection(section + 1)} disabled=${!canProceed}
+                class=${"px-6 py-2.5 rounded-lg font-medium transition " + (canProceed ? "bg-amber-600 hover:bg-amber-500 text-white" : "bg-slate-700 text-slate-500 cursor-not-allowed")}>
+                Next →</button>`
+            : html`<a href="02-information-architecture.html" class="px-6 py-2.5 rounded-lg font-medium bg-amber-600 hover:bg-amber-500 text-white transition">Next Module →</a>`}
+        </div>
+      `;
+    }
+
+    function Yaml({ lines }) {
+      return html`
+        <div class="bg-slate-950 rounded-lg p-4 font-mono text-sm leading-relaxed border border-slate-800">
+          <div class="text-slate-600">---</div>
+          ${lines.map(([k, v, highlight]) => html`
+            <div class=${highlight ? "bg-amber-500/10 -mx-4 px-4" : ""}>
+              <span class="text-purple-400">${k}:</span> <span class=${highlight ? "text-amber-300" : "text-slate-300"}>${v}</span>
+            </div>
+          `)}
+          <div class="text-slate-600">---</div>
+        </div>
+      `;
+    }
+
+    // ── Section 0: Title ─────────────────────────────────────
+
+    function TitleSection() {
+      return html`
+        <div class="text-center py-16">
+          <div class="text-amber-500 font-mono text-sm tracking-widest mb-4">MODULE 1 OF 4</div>
+          <h1 class="text-5xl font-extrabold text-white mb-6 tracking-tight">The Routing Problem</h1>
+          <p class="text-xl text-slate-400 max-w-lg mx-auto leading-relaxed">How Claude decides which skill to load — and why yours might never fire.</p>
+        </div>
+      `;
+    }
+
+    // ── Section 1: Will This Skill Fire? ─────────────────────
+
+    function HookSection() {
+      const [choice, setChoice] = useState(null);
+      const [revealed, setRevealed] = useState(false);
+      return html`
+        <div>
+          <h2 class="text-3xl font-bold text-white mb-2">Will This Skill Fire?</h2>
+          <p class="text-slate-400 mb-8">A user types this into Claude Code:</p>
+          <div class="bg-blue-950/40 rounded-lg p-4 mb-6 border border-blue-800/50">
+            <div class="text-blue-400 font-mono text-xs mb-1">USER QUERY</div>
+            <div class="text-lg text-white">"Help me set up a new project workspace in Linear"</div>
+          </div>
+          <p class="text-slate-400 mb-4">This skill is installed:</p>
+          <div class="bg-slate-800 rounded-lg p-5 mb-4 border border-slate-700">
+            <div class="text-amber-400 font-mono text-sm mb-3">linear-project-setup / SKILL.md</div>
+            <${Yaml} lines=${[["name", "linear-project-setup"], ["description", '"Handles project management tasks."', true]]} />
+            <div class="mt-4 bg-slate-950 rounded-lg p-4 font-mono text-sm text-slate-400 border border-slate-800 max-h-32 overflow-hidden relative">
+              <div># Linear Project Setup\n\n## Instructions\n1. Connect to Linear MCP\n2. Create project workspace\n3. Set up views (Backlog, Active, Done)\n4. Configure team members and roles\n5. Create initial sprint with placeholders\n\n## Error Handling\nIf connection fails...</div>
+              <div class="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-slate-950"></div>
+            </div>
+          </div>
+          <p class="text-slate-400 mb-4 text-sm">The instructions are detailed — steps, error handling, the works.</p>
+
+          ${!choice && html`
+            <div class="text-center mt-8 fade-in">
+              <p class="text-lg text-white mb-4 font-medium">Will Claude automatically load this skill for that query?</p>
+              <div class="flex gap-4 justify-center">
+                <button onClick=${() => setChoice('yes')} class="px-8 py-3 bg-green-700 hover:bg-green-600 rounded-lg font-medium transition text-white">Yes, it'll fire</button>
+                <button onClick=${() => setChoice('no')} class="px-8 py-3 bg-red-700 hover:bg-red-600 rounded-lg font-medium transition text-white">No, it won't</button>
+              </div>
+            </div>
+          `}
+
+          ${choice && !revealed && html`
+            <div class="text-center mt-8 fade-in">
+              <p class="text-slate-400 mb-3">You predicted: <span class="font-medium ${choice === 'yes' ? 'text-green-400' : 'text-red-400'}">${choice === 'yes' ? "Yes" : "No"}</span></p>
+              <button onClick=${() => setRevealed(true)} class="px-8 py-3 bg-amber-600 hover:bg-amber-500 rounded-lg font-medium transition text-white">Reveal</button>
+            </div>
+          `}
+
+          ${revealed && html`
+            <div class="mt-8 fade-in">
+              <div class="bg-red-950/40 border border-red-800/50 rounded-lg p-6">
+                <div class="text-red-400 font-bold text-xl mb-3">It won't fire.</div>
+                <p class="text-slate-300 mb-3">The instructions are excellent. But Claude never sees them.</p>
+                <p class="text-slate-300 mb-3">Claude decides which skills to load by reading <span class="text-amber-400 font-semibold">only the description field</span>. This one says: <span class="font-mono text-red-300 text-sm">"Handles project management tasks."</span></p>
+                <p class="text-slate-300">That's too vague. Claude reads this alongside 20+ other skill descriptions and has no reason to think this one handles Linear project setup. The body — no matter how well-written — never loads.</p>
+              </div>
+              ${choice === 'yes' && html`
+                <div class="mt-4 bg-slate-800 rounded-lg p-4 border border-slate-700 fade-in">
+                  <p class="text-amber-400 font-medium mb-1">You're not alone.</p>
+                  <p class="text-slate-300 text-sm">This is the #1 mistake in skill building. Most people write great instructions and treat the description as an afterthought. It's actually the other way around.</p>
+                </div>
+              `}
+              ${choice === 'no' && html`
+                <div class="mt-4 bg-slate-800 rounded-lg p-4 border border-slate-700 fade-in">
+                  <p class="text-green-400 font-medium mb-1">Good instinct.</p>
+                  <p class="text-slate-300 text-sm">You caught that the description was too vague. This module will show you exactly how Claude's routing works and how to write descriptions that fire reliably.</p>
+                </div>
+              `}
+            </div>
+          `}
+        </div>
+      `;
+    }
+
+    // ── Section 2: What Skills Actually Are ──────────────────
+
+    function WhatAreSkills() {
+      const [idx, setIdx] = useState(0);
+      const [answer, setAnswer] = useState(null);
+      const [score, setScore] = useState(0);
+      const done = idx >= tfStatements.length;
+      const stmt = tfStatements[idx];
+
+      function pick(val) {
+        setAnswer(val);
+        if (val === stmt.answer) setScore(s => s + 1);
+      }
+      function next() { setAnswer(null); setIdx(i => i + 1); }
+
+      return html`
+        <div>
+          <h2 class="text-3xl font-bold text-white mb-2">What Skills Actually Are</h2>
+          <p class="text-slate-400 mb-8">Before we go deeper into routing, let's ground what skills are — and aren't. Quick-fire: true or false?</p>
+
+          ${!done && html`
+            <div class="fade-in" key=${idx}>
+              <div class="flex justify-between text-sm text-slate-500 mb-4">
+                <span>Question ${idx + 1} of ${tfStatements.length}</span>
+                <span>${score} correct</span>
+              </div>
+              <div class="bg-slate-800 rounded-lg p-6 border border-slate-700 mb-6">
+                <p class="text-lg text-white font-medium">"${stmt.text}"</p>
+              </div>
+              ${answer === null && html`
+                <div class="flex gap-4 justify-center">
+                  <button onClick=${() => pick(true)} class="px-8 py-3 bg-green-700 hover:bg-green-600 rounded-lg font-medium transition text-white">True</button>
+                  <button onClick=${() => pick(false)} class="px-8 py-3 bg-red-700 hover:bg-red-600 rounded-lg font-medium transition text-white">False</button>
+                </div>
+              `}
+              ${answer !== null && html`
+                <div class="fade-in">
+                  <div class=${"rounded-lg p-4 mb-4 border " + (answer === stmt.answer ? "bg-green-950/40 border-green-800/50" : "bg-red-950/40 border-red-800/50")}>
+                    <span class=${"font-bold " + (answer === stmt.answer ? "text-green-400" : "text-red-400")}>
+                      ${answer === stmt.answer ? "Correct!" : "Not quite."}
+                    </span>
+                    <span class="text-white font-medium ml-2">The answer is ${stmt.answer ? "True" : "False"}.</span>
+                    <p class="text-slate-300 mt-2 text-sm">${stmt.explain}</p>
+                  </div>
+                  <div class="text-center">
+                    <button onClick=${next} class="px-6 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition text-white">Next →</button>
+                  </div>
+                </div>
+              `}
+            </div>
+          `}
+
+          ${done && html`
+            <div class="text-center fade-in">
+              <div class="text-4xl font-bold text-white mb-2">${score} / ${tfStatements.length}</div>
+              <p class="text-slate-400 mb-6">The key takeaway: skills are <span class="text-amber-400 font-medium">markdown instructions that modify Claude's context</span>, not executable code. And the description — not the body — is what gets Claude's attention.</p>
+            </div>
+          `}
+        </div>
+      `;
+    }
+
+    // ── Section 3: The Routing Mechanism ─────────────────────
+
+    function RoutingMechanism() {
+      const [round, setRound] = useState(0);
+      const [pick, setPick] = useState(null);
+      const [score, setScore] = useState(0);
+      const done = round >= routingRounds.length;
+      const r = routingRounds[round];
+
+      function choose(id) {
+        setPick(id);
+        const skill = r.skills.find(s => s.id === id);
+        if (skill.correct) setScore(s => s + 1);
+      }
+      function nextRound() { setPick(null); setRound(n => n + 1); }
+
+      return html`
+        <div>
+          <h2 class="text-3xl font-bold text-white mb-2">The Routing Mechanism</h2>
+          <p class="text-slate-400 mb-2">Now let's see routing from Claude's perspective. You'll see a user query and three installed skills — <span class="text-white font-medium">only their descriptions</span>.</p>
+          <p class="text-slate-400 mb-8">Pick which skill Claude would select. Remember: Claude uses semantic reasoning, not keyword matching.</p>
+
+          ${!done && html`
+            <div class="fade-in" key=${round}>
+              <div class="flex justify-between text-sm text-slate-500 mb-4">
+                <span>Round ${round + 1} of ${routingRounds.length}</span>
+                <span>${score} correct</span>
+              </div>
+              <div class="bg-blue-950/40 rounded-lg p-4 mb-6 border border-blue-800/50">
+                <div class="text-blue-400 font-mono text-xs mb-1">USER QUERY</div>
+                <div class="text-lg text-white">"${r.query}"</div>
+              </div>
+              <div class="space-y-3">
+                ${r.skills.map(s => {
+                  const selected = pick === s.id;
+                  const isCorrect = s.correct;
+                  const showResult = pick !== null;
+                  let border = "border-slate-700 hover:border-slate-500";
+                  if (showResult && isCorrect) border = "border-green-500 bg-green-950/20";
+                  else if (showResult && selected && !isCorrect) border = "border-red-500 bg-red-950/20";
+                  else if (showResult) border = "border-slate-800 opacity-50";
+                  return html`
+                    <button key=${s.id} onClick=${() => !pick && choose(s.id)} disabled=${!!pick}
+                      class=${"w-full text-left rounded-lg p-4 border transition " + border + (!pick ? " cursor-pointer" : " cursor-default")}>
+                      <div class="flex items-center gap-3 mb-1">
+                        <span class="text-amber-400 font-mono text-sm">${s.name}</span>
+                        ${showResult && isCorrect && html`<span class="text-green-400 text-xs font-medium">✓ MATCH</span>`}
+                        ${showResult && selected && !isCorrect && html`<span class="text-red-400 text-xs font-medium">✗ WRONG</span>`}
+                      </div>
+                      <div class="text-slate-300 text-sm">${s.desc}</div>
+                      ${showResult && (selected || isCorrect) && html`
+                        <div class="mt-2 text-xs ${isCorrect ? 'text-green-300/80' : 'text-red-300/80'} fade-in">${s.why}</div>
+                      `}
+                    </button>
+                  `;
+                })}
+              </div>
+              ${pick && html`
+                <div class="mt-6 bg-slate-800 rounded-lg p-4 border border-slate-700 fade-in">
+                  <p class="text-amber-400 font-medium text-sm mb-1">Takeaway</p>
+                  <p class="text-slate-300 text-sm">${r.lesson}</p>
+                </div>
+              `}
+              ${pick && html`
+                <div class="text-center mt-4"><button onClick=${nextRound} class="px-6 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition text-white">Next Round →</button></div>
+              `}
+            </div>
+          `}
+
+          ${done && html`
+            <div class="text-center fade-in">
+              <div class="text-4xl font-bold text-white mb-2">${score} / ${routingRounds.length}</div>
+              <p class="text-slate-400 mb-4">You've seen how Claude's routing actually works.</p>
+              <div class="bg-slate-800 rounded-lg p-6 border border-slate-700 text-left max-w-lg mx-auto">
+                <p class="text-white font-medium mb-3">Three things to remember:</p>
+                <ol class="text-slate-300 text-sm space-y-2 list-decimal list-inside">
+                  <li><span class="text-amber-400">Semantic reasoning</span>, not keyword matching. Claude understands intent.</li>
+                  <li>The <span class="text-amber-400">description alone</span> determines routing. Instructions are invisible until the skill loads.</li>
+                  <li><span class="text-amber-400">Specificity wins</span>. A focused description beats a broad one every time.</li>
+                </ol>
+              </div>
+            </div>
+          `}
+        </div>
+      `;
+    }
+
+    // ── Section 4: The Description Formula ───────────────────
+
+    function DescriptionFormula() {
+      const [pairIdx, setPairIdx] = useState(0);
+      const [phase, setPhase] = useState('compare'); // compare | exercise | done
+      const [exChoice, setExChoice] = useState(null);
+      const pair = descPairs[pairIdx];
+
+      function nextPair() {
+        if (pairIdx < descPairs.length - 1) { setPairIdx(i => i + 1); }
+        else { setPhase('exercise'); }
+      }
+
+      return html`
+        <div>
+          <h2 class="text-3xl font-bold text-white mb-2">The Description Formula</h2>
+          <p class="text-slate-400 mb-8">A good description follows a formula: <span class="text-amber-400 font-semibold">WHAT</span> (specific action verb) + <span class="text-amber-400 font-semibold">WHEN</span> (trigger conditions). Let's see it in action.</p>
+
+          ${phase === 'compare' && html`
+            <div class="fade-in" key=${pairIdx}>
+              <p class="text-slate-500 text-sm mb-4">Use case: ${pair.useCase}</p>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div class="bg-red-950/20 rounded-lg p-5 border border-red-800/40">
+                  <div class="text-red-400 font-mono text-xs mb-3">BAD DESCRIPTION</div>
+                  <p class="text-white font-medium mb-4 font-mono text-sm">"${pair.bad.text}"</p>
+                  <div class="space-y-1">
+                    ${pair.bad.problems.map(p => html`<div class="text-red-300/70 text-xs flex items-start gap-2"><span class="text-red-500 mt-0.5">✗</span> ${p}</div>`)}
+                  </div>
+                </div>
+                <div class="bg-green-950/20 rounded-lg p-5 border border-green-800/40">
+                  <div class="text-green-400 font-mono text-xs mb-3">GOOD DESCRIPTION</div>
+                  <p class="text-white font-medium mb-4 font-mono text-sm">"${pair.good.text}"</p>
+                  <div class="space-y-1">
+                    ${pair.good.strengths.map(s => html`<div class="text-green-300/70 text-xs flex items-start gap-2"><span class="text-green-500 mt-0.5">✓</span> ${s}</div>`)}
+                  </div>
+                </div>
+              </div>
+              <div class="text-center">
+                <button onClick=${nextPair} class="px-6 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition text-white">
+                  ${pairIdx < descPairs.length - 1 ? "Next Example →" : "Try It Yourself →"}
+                </button>
+              </div>
+            </div>
+          `}
+
+          ${phase === 'exercise' && html`
+            <div class="fade-in">
+              <div class="bg-slate-800 rounded-lg p-5 border border-slate-700 mb-6">
+                <p class="text-slate-400 text-sm mb-1">Use case:</p>
+                <p class="text-white font-medium">${descExercise.useCase}</p>
+              </div>
+              <p class="text-slate-400 mb-4">Which description would trigger most reliably?</p>
+              <div class="space-y-3">
+                ${descExercise.options.map(o => {
+                  const selected = exChoice === o.id;
+                  const showFeedback = exChoice !== null;
+                  const isBest = o.score === 3;
+                  let cls = "border-slate-700 hover:border-slate-500 cursor-pointer";
+                  if (showFeedback && isBest) cls = "border-green-500 bg-green-950/20";
+                  else if (showFeedback && selected && !isBest) cls = "border-red-500 bg-red-950/20";
+                  else if (showFeedback) cls = "border-slate-800 opacity-50";
+                  return html`
+                    <button key=${o.id} onClick=${() => !exChoice && setExChoice(o.id)} disabled=${!!exChoice}
+                      class=${"w-full text-left rounded-lg p-4 border transition " + cls + (exChoice ? " cursor-default" : "")}>
+                      <div class="font-mono text-sm text-slate-300">"${o.text}"</div>
+                      ${showFeedback && (selected || isBest) && html`
+                        <div class="mt-2 text-xs ${isBest ? 'text-green-300/80' : 'text-red-300/80'} fade-in">${o.feedback}</div>
+                      `}
+                    </button>
+                  `;
+                })}
+              </div>
+              ${exChoice && html`
+                <div class="mt-6 text-center fade-in">
+                  <button onClick=${() => setPhase('done')} class="px-6 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition text-white">See the Formula →</button>
+                </div>
+              `}
+            </div>
+          `}
+
+          ${phase === 'done' && html`
+            <div class="fade-in">
+              <div class="bg-amber-950/30 rounded-lg p-6 border border-amber-700/40">
+                <p class="text-amber-400 font-bold text-lg mb-4">The Description Formula</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <div class="text-amber-300 font-mono text-sm mb-2">WHAT — Action Verb</div>
+                    <p class="text-slate-300 text-sm mb-2">Lead with what the skill <em>does</em>. Use strong verbs:</p>
+                    <p class="text-slate-400 text-xs font-mono">Generate, Deploy, Analyze, Review, Create, Convert, Extract, Set up, Configure, Debug</p>
+                  </div>
+                  <div>
+                    <div class="text-amber-300 font-mono text-sm mb-2">WHEN — Trigger Conditions</div>
+                    <p class="text-slate-300 text-sm mb-2">Tell Claude when to load it. Use the phrase "Use when...":</p>
+                    <p class="text-slate-400 text-xs font-mono">Use when [specific scenario], [another scenario], or [asking about X].</p>
+                  </div>
+                </div>
+                <div class="mt-4 pt-4 border-t border-amber-800/30">
+                  <p class="text-slate-400 text-xs">Pro tip: Be "slightly pushy." Claude undertriggers by default. If your skill handles dashboards, say "Use when the user mentions dashboards, data visualization, metrics, or displaying company data" — even if they don't use the word "dashboard."</p>
+                </div>
+              </div>
+            </div>
+          `}
+        </div>
+      `;
+    }
+
+    // ── Section 5: Bridge ────────────────────────────────────
+
+    function Bridge() {
+      return html`
+        <div class="text-center py-8">
+          <div class="max-w-lg mx-auto">
+            <div class="text-amber-500 font-mono text-sm tracking-widest mb-4">WHAT YOU NOW KNOW</div>
+            <h2 class="text-3xl font-bold text-white mb-6">The Description IS the Skill</h2>
+            <div class="text-left bg-slate-800 rounded-lg p-6 border border-slate-700 mb-8">
+              <div class="space-y-4 text-slate-300 text-sm">
+                <div class="flex gap-3"><span class="text-amber-400 font-bold shrink-0">1.</span> Skills are markdown instructions that modify Claude's context — not executable code.</div>
+                <div class="flex gap-3"><span class="text-amber-400 font-bold shrink-0">2.</span> Claude selects skills via LLM semantic reasoning on descriptions only. No keywords, no regex.</div>
+                <div class="flex gap-3"><span class="text-amber-400 font-bold shrink-0">3.</span> The description field is a routing label. If it's vague, your skill is invisible.</div>
+                <div class="flex gap-3"><span class="text-amber-400 font-bold shrink-0">4.</span> The formula: <span class="text-amber-400 font-medium">WHAT</span> (action verb) + <span class="text-amber-400 font-medium">WHEN</span> (trigger conditions).</div>
+              </div>
+            </div>
+            <div class="bg-slate-800/50 rounded-lg p-5 border border-slate-700">
+              <p class="text-slate-400 text-sm mb-3">Next up: descriptions get Claude's attention. But what happens when the skill loads? How do you decide what goes in the body vs reference files vs scripts? That's an information architecture problem.</p>
+              <a href="02-information-architecture.html" class="inline-block px-6 py-2.5 bg-amber-600 hover:bg-amber-500 rounded-lg font-medium text-white transition">Module 2: The Information Architecture →</a>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ── App ──────────────────────────────────────────────────
+
+    const sections = [
+      { component: TitleSection, gate: true },
+      { component: HookSection, gate: true },
+      { component: WhatAreSkills, gate: true },
+      { component: RoutingMechanism, gate: true },
+      { component: DescriptionFormula, gate: true },
+      { component: Bridge, gate: true },
+    ];
+
+    function App() {
+      const [section, setSection] = useState(0);
+      const Section = sections[section].component;
+      return html`
+        <div>
+          <${ProgressBar} current=${section} total=${sections.length} />
+          <div class="max-w-3xl mx-auto px-6 pt-20 pb-12">
+            <div class="fade-in" key=${section}><${Section} /></div>
+            <${Nav} section=${section} total=${sections.length} setSection=${setSection} canProceed=${true} />
+          </div>
+        </div>
+      `;
+    }
+
+    render(html`<${App} />`, document.getElementById('app'));
+  </script>
+</body>
+</html>

@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Variable Playground — Component Demo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['DM Sans', 'sans-serif'], mono: ['DM Mono', 'monospace'] } } }
+    }
+  </script>
+  <style>
+    .grain { background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); }
+    input[type=range] { -webkit-appearance: none; appearance: none; background: transparent; cursor: pointer; }
+    input[type=range]::-webkit-slider-track { height: 4px; border-radius: 2px; background: #1e293b; }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; margin-top: -7px; border: 2px solid var(--accent, #facc15); background: #0a0e1a; transition: all 0.15s; }
+    input[type=range]::-webkit-slider-thumb:hover { background: var(--accent, #facc15); transform: scale(1.2); }
+    @keyframes slideUp { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: translateY(0); } }
+    .slide-up { animation: slideUp 0.3s ease-out; }
+  </style>
+</head>
+<body class="bg-[#0a0e1a] text-slate-200 font-sans grain min-h-screen">
+
+  <div class="max-w-5xl mx-auto px-8 pt-20 pb-8">
+    <div class="text-[#facc15] font-mono text-xs tracking-[0.25em] mb-3 uppercase">Component 03</div>
+    <h1 class="text-4xl font-bold text-white mb-3 tracking-tight">Variable Playground</h1>
+    <p class="text-slate-400 max-w-xl leading-relaxed">Sliders and toggles control parameters. A live preview updates in real-time. The learner discovers relationships by experimenting — building intuition rather than receiving instructions.</p>
+  </div>
+
+  <div id="app"></div>
+
+  <script type="module">
+    import { h, render } from 'https://esm.sh/preact@10';
+    import { useState, useMemo } from 'https://esm.sh/preact@10/hooks';
+    import htm from 'https://esm.sh/htm@3';
+    const html = htm.bind(h);
+
+    // ── The Reusable Component ──────────────────────────────
+
+    function VariablePlayground({ controls, renderPreview, challenges }) {
+      const [values, setValues] = useState(() => {
+        const init = {};
+        controls.forEach(c => { init[c.key] = c.default; });
+        return init;
+      });
+      const [activeChallenge, setActiveChallenge] = useState(null);
+
+      function setValue(key, val) {
+        setValues(v => ({ ...v, [key]: val }));
+      }
+
+      const challengeResult = useMemo(() => {
+        if (!activeChallenge) return null;
+        const ch = challenges[activeChallenge];
+        return ch.check(values);
+      }, [values, activeChallenge]);
+
+      return html`
+        <div class="max-w-5xl mx-auto px-8 py-12">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            <!-- Controls panel -->
+            <div class="bg-[#0d1320] rounded-2xl border border-slate-800/60 overflow-hidden">
+              <div class="px-6 py-4 border-b border-slate-800/60">
+                <div class="text-slate-500 font-mono text-[10px] tracking-wider uppercase">Parameters</div>
+              </div>
+              <div class="p-6 space-y-6">
+                ${controls.map(c => html`
+                  <div key=${c.key}>
+                    <div class="flex items-center justify-between mb-2">
+                      <div>
+                        <span class="text-sm font-medium text-white">${c.label}</span>
+                        ${c.hint && html`<span class="text-slate-600 text-xs ml-2">${c.hint}</span>`}
+                      </div>
+                      <span class="font-mono text-sm font-medium" style=${{ color: c.color || '#facc15' }}>
+                        ${c.type === 'toggle' ? (values[c.key] ? c.onLabel || 'On' : c.offLabel || 'Off') :
+                          c.type === 'select' ? c.options.find(o => o.value === values[c.key])?.label :
+                          values[c.key] + (c.unit || '')}
+                      </span>
+                    </div>
+                    ${c.type === 'range' && html`
+                      <input type="range" min=${c.min} max=${c.max} step=${c.step || 1} value=${values[c.key]}
+                        onInput=${e => setValue(c.key, Number(e.target.value))}
+                        style=${{ '--accent': c.color || '#facc15' }}
+                        class="w-full" />
+                      <div class="flex justify-between text-[10px] text-slate-600 font-mono mt-1">
+                        <span>${c.minLabel || c.min}</span><span>${c.maxLabel || c.max}</span>
+                      </div>
+                    `}
+                    ${c.type === 'toggle' && html`
+                      <button onClick=${() => setValue(c.key, !values[c.key])}
+                        class=${"w-12 h-6 rounded-full relative transition-all duration-200 " + (values[c.key] ? "bg-[" + (c.color || '#facc15') + "]/30" : "bg-slate-800")}>
+                        <div class=${"absolute top-0.5 w-5 h-5 rounded-full transition-all duration-200 " +
+                          (values[c.key] ? "left-[26px]" : "left-0.5")}
+                          style=${{ background: values[c.key] ? (c.color || '#facc15') : '#475569' }}></div>
+                      </button>
+                    `}
+                    ${c.type === 'select' && html`
+                      <div class="flex gap-2">
+                        ${c.options.map(o => html`
+                          <button key=${o.value} onClick=${() => setValue(c.key, o.value)}
+                            class=${"px-3 py-1.5 rounded-lg text-xs font-medium transition-all border " +
+                              (values[c.key] === o.value ? "border-[" + (c.color || '#facc15') + "]/40 bg-[" + (c.color || '#facc15') + "]/10 text-white" : "border-slate-800 text-slate-500 hover:text-slate-300")}>
+                            ${o.label}
+                          </button>
+                        `)}
+                      </div>
+                    `}
+                  </div>
+                `)}
+              </div>
+            </div>
+
+            <!-- Preview panel -->
+            <div class="bg-[#0d1320] rounded-2xl border border-slate-800/60 overflow-hidden">
+              <div class="px-6 py-4 border-b border-slate-800/60 flex items-center justify-between">
+                <div class="text-slate-500 font-mono text-[10px] tracking-wider uppercase">Live Preview</div>
+                <div class="flex items-center gap-1.5">
+                  <div class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+                  <span class="text-green-500/70 text-[10px] font-mono">live</span>
+                </div>
+              </div>
+              <div class="p-6">
+                ${renderPreview(values)}
+              </div>
+            </div>
+          </div>
+
+          <!-- Challenges -->
+          ${challenges && challenges.length > 0 && html`
+            <div class="mt-8">
+              <div class="text-slate-500 font-mono text-[10px] tracking-wider uppercase mb-4">Challenges — find the configuration</div>
+              <div class="grid grid-cols-1 md:grid-cols-${Math.min(challenges.length, 3)} gap-3">
+                ${challenges.map((ch, i) => {
+                  const isActive = activeChallenge === i;
+                  const isPassed = isActive && challengeResult;
+                  return html`
+                    <button key=${i} onClick=${() => setActiveChallenge(isActive ? null : i)}
+                      class=${"text-left rounded-xl p-4 border transition-all " +
+                        (isPassed ? "border-green-500/40 bg-green-500/5" :
+                         isActive ? "border-[#facc15]/40 bg-[#facc15]/5" :
+                         "border-slate-800/60 bg-[#0d1320] hover:border-slate-700")}>
+                      <div class="flex items-center gap-2 mb-1">
+                        ${isPassed ? html`<svg class="w-4 h-4 text-green-500" viewBox="0 0 16 16"><path d="M4 8l3 3 5-5" stroke="currentColor" stroke-width="2" fill="none"/></svg>`
+                          : html`<div class=${"w-4 h-4 rounded-full border-2 " + (isActive ? "border-[#facc15]" : "border-slate-700")}></div>`}
+                        <span class=${"text-sm font-medium " + (isPassed ? "text-green-400" : isActive ? "text-[#facc15]" : "text-slate-400")}>${ch.label}</span>
+                      </div>
+                      <p class="text-xs text-slate-500 ml-6">${ch.description}</p>
+                      ${isPassed && html`<div class="mt-2 ml-6 text-xs text-green-400/70 slide-up">${ch.successMsg || "Solved!"}</div>`}
+                    </button>
+                  `;
+                })}
+              </div>
+            </div>
+          `}
+        </div>
+      `;
+    }
+
+    // ── Demo: Skill Autonomy Control Surface ────────────────
+
+    const demoControls = [
+      {
+        key: 'descSpecificity', label: 'Description Specificity', type: 'range',
+        min: 1, max: 5, default: 2, color: '#5eead4',
+        minLabel: 'Vague', maxLabel: 'Precise',
+        hint: 'routing precision'
+      },
+      {
+        key: 'autoTrigger', label: 'Auto-Trigger', type: 'toggle',
+        default: true, color: '#f87171',
+        onLabel: 'Claude decides', offLabel: 'User only',
+        hint: 'disable-model-invocation'
+      },
+      {
+        key: 'toolScope', label: 'Tool Scope', type: 'select',
+        default: 'full', color: '#818cf8',
+        options: [
+          { value: 'readonly', label: 'Read-only' },
+          { value: 'scoped', label: 'Scoped Bash' },
+          { value: 'full', label: 'Full access' },
+        ],
+        hint: 'allowed-tools'
+      },
+      {
+        key: 'contextFork', label: 'Context Fork', type: 'toggle',
+        default: false, color: '#c084fc',
+        onLabel: 'Subagent', offLabel: 'Inline',
+        hint: 'context: fork'
+      },
+      {
+        key: 'effort', label: 'Effort Level', type: 'range',
+        min: 1, max: 4, default: 2, color: '#34d399',
+        minLabel: 'Low', maxLabel: 'Max',
+        hint: 'reasoning depth'
+      },
+    ];
+
+    function renderSkillPreview(values) {
+      // Compute risk and behavior indicators
+      const riskFactors = [];
+      if (values.autoTrigger && values.toolScope === 'full') riskFactors.push('Auto-trigger + full tools = dangerous');
+      if (values.autoTrigger && values.descSpecificity < 3) riskFactors.push('Auto-trigger + vague description = fires unpredictably');
+      if (values.toolScope === 'full' && !values.contextFork) riskFactors.push('Full tools inline = can modify anything');
+
+      const benefits = [];
+      if (!values.autoTrigger && values.toolScope === 'full') benefits.push('User-triggered + full tools = safe power');
+      if (values.contextFork) benefits.push('Forked context = main conversation protected');
+      if (values.descSpecificity >= 4) benefits.push('Precise description = reliable triggering');
+      if (values.effort >= 3 && values.contextFork) benefits.push('Deep reasoning in isolation = thorough analysis');
+      if (!values.autoTrigger) benefits.push('Manual trigger = full user control');
+      if (values.toolScope === 'readonly') benefits.push('Read-only = zero side effects');
+
+      const riskLevel = riskFactors.length === 0 ? 'low' : riskFactors.length === 1 ? 'medium' : 'high';
+      const riskColor = riskLevel === 'low' ? '#34d399' : riskLevel === 'medium' ? '#facc15' : '#f87171';
+
+      const toolsStr = values.toolScope === 'readonly' ? 'Read Grep Glob' :
+                        values.toolScope === 'scoped' ? 'Read Grep Bash(git *)' :
+                        'Read Write Bash Edit Glob Grep';
+      const effortStr = ['', 'low', 'medium', 'high', 'max'][values.effort];
+
+      return html`
+        <div class="space-y-5">
+          <!-- Generated YAML -->
+          <div class="bg-[#0a0e1a] rounded-xl border border-slate-800/40 p-4 font-mono text-xs leading-relaxed">
+            <div class="text-slate-600">---</div>
+            <div><span class="text-[#c084fc]">name:</span> <span class="text-slate-300">my-skill</span></div>
+            <div><span class="text-[#c084fc]">description:</span> <span class=${"text-slate-300 " + (values.descSpecificity < 3 ? "opacity-40" : "")}>${
+              values.descSpecificity <= 1 ? '"Helps with tasks."' :
+              values.descSpecificity === 2 ? '"Manages deployments."' :
+              values.descSpecificity === 3 ? '"Deploy Next.js apps to Vercel."' :
+              values.descSpecificity === 4 ? '"Deploy Next.js to Vercel. Use when pushing to prod or configuring previews."' :
+              '"Deploy Next.js to Vercel. Use when pushing to production, setting up preview deployments, or configuring env vars on Vercel."'
+            }</span></div>
+            ${!values.autoTrigger && html`<div><span class="text-[#c084fc]">disable-model-invocation:</span> <span class="text-[#f87171]">true</span></div>`}
+            <div><span class="text-[#c084fc]">allowed-tools:</span> <span class="text-slate-300">"${toolsStr}"</span></div>
+            ${values.contextFork && html`<div><span class="text-[#c084fc]">context:</span> <span class="text-[#c084fc]">fork</span></div>`}
+            ${values.effort !== 2 && html`<div><span class="text-[#c084fc]">effort:</span> <span class="text-slate-300">${effortStr}</span></div>`}
+            <div class="text-slate-600">---</div>
+          </div>
+
+          <!-- Risk indicator -->
+          <div class="flex items-center gap-3">
+            <div class="w-2.5 h-2.5 rounded-full" style=${{ background: riskColor }}></div>
+            <span class="font-mono text-xs uppercase tracking-wider" style=${{ color: riskColor }}>${riskLevel} risk</span>
+          </div>
+
+          <!-- Warnings -->
+          ${riskFactors.length > 0 && html`
+            <div class="space-y-2">
+              ${riskFactors.map((r, i) => html`
+                <div key=${i} class="flex items-start gap-2 text-xs slide-up">
+                  <span class="text-[#f87171] mt-0.5 shrink-0">!</span>
+                  <span class="text-[#f87171]/80">${r}</span>
+                </div>
+              `)}
+            </div>
+          `}
+
+          <!-- Benefits -->
+          ${benefits.length > 0 && html`
+            <div class="space-y-2">
+              ${benefits.map((b, i) => html`
+                <div key=${i} class="flex items-start gap-2 text-xs slide-up">
+                  <span class="text-[#34d399] mt-0.5 shrink-0">✓</span>
+                  <span class="text-[#34d399]/80">${b}</span>
+                </div>
+              `)}
+            </div>
+          `}
+        </div>
+      `;
+    }
+
+    const demoChallenges = [
+      {
+        label: "Safe Deployment",
+        description: "Configure a deploy skill: user-only trigger, full tools, inline, no risk warnings",
+        check: (v) => !v.autoTrigger && v.toolScope === 'full' && !v.contextFork,
+        successMsg: "User-triggered + full tools = safe power. The user explicitly invokes, so broad permissions are justified.",
+      },
+      {
+        label: "Security Audit",
+        description: "Read-only analysis in a forked context with deep reasoning",
+        check: (v) => v.toolScope === 'readonly' && v.contextFork && v.effort >= 3,
+        successMsg: "Isolated, read-only, deep reasoning. Perfect for analysis that reads many files without side effects.",
+      },
+      {
+        label: "Zero Risk",
+        description: "Eliminate all risk warnings while keeping auto-trigger enabled",
+        check: (v) => v.autoTrigger && v.descSpecificity >= 3 && v.toolScope === 'readonly',
+        successMsg: "Auto-trigger is safe when combined with precise description + read-only tools. Claude can fire it without danger.",
+      },
+    ];
+
+    function App() {
+      return html`<${VariablePlayground} controls=${demoControls} renderPreview=${renderSkillPreview} challenges=${demoChallenges} />`;
+    }
+
+    render(html`<${App} />`, document.getElementById('app'));
+  </script>
+</body>
+</html>

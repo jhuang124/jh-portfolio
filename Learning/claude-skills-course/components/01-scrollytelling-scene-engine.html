@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scrollytelling Scene Engine — Component Demo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['DM Sans', 'sans-serif'], mono: ['DM Mono', 'monospace'] } } }
+    }
+  </script>
+  <style>
+    :root { --scene-h: 70vh; }
+    .scene-sticky { position: sticky; top: 0; height: var(--scene-h); }
+    .step { min-height: 60vh; }
+    .step-active .step-card { opacity: 1; transform: translateY(0); }
+    .step-card { opacity: 0.15; transform: translateY(12px); transition: all 0.45s cubic-bezier(.22,.68,0,.71); }
+    .scene-fade { transition: all 0.6s cubic-bezier(.22,.68,0,.71); }
+    .grain { background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); }
+  </style>
+</head>
+<body class="bg-[#0a0e1a] text-slate-200 font-sans grain">
+
+  <!-- Header -->
+  <div class="max-w-5xl mx-auto px-8 pt-20 pb-8">
+    <div class="text-[#5eead4] font-mono text-xs tracking-[0.25em] mb-3 uppercase">Component 01</div>
+    <h1 class="text-4xl font-bold text-white mb-3 tracking-tight">Scrollytelling Scene Engine</h1>
+    <p class="text-slate-400 max-w-xl leading-relaxed">Sticky visual stage + scrolling text panels. The visual transforms in response to scroll position. The learner reads at their own pace while the diagram evolves to match the narrative.</p>
+  </div>
+
+  <div id="app"></div>
+
+  <!-- Usage guide -->
+  <div class="max-w-5xl mx-auto px-8 py-20">
+    <div class="border-t border-slate-800 pt-12">
+      <h2 class="text-lg font-bold text-white mb-6">Usage</h2>
+      <pre class="bg-[#0d1320] rounded-xl p-6 font-mono text-sm text-slate-300 border border-slate-800/60 overflow-x-auto"><code>// Define your scene steps — each step has a narrative card
+// and a render function that returns the visual for that step.
+
+const steps = [
+  {
+    label: "Step label",
+    title: "Card Title",
+    body: "Explanatory text for this step.",
+    render: (active) => html\`&lt;\${YourVisualComponent} active=\${active} />\`
+  },
+  // ... more steps
+];
+
+html\`&lt;\${ScrollytellingScene} steps=\${steps} />\`</code></pre>
+    </div>
+  </div>
+
+  <script type="module">
+    import { h, render } from 'https://esm.sh/preact@10';
+    import { useState, useEffect, useRef, useCallback } from 'https://esm.sh/preact@10/hooks';
+    import htm from 'https://esm.sh/htm@3';
+    const html = htm.bind(h);
+
+    // ── The Reusable Component ──────────────────────────────
+
+    function ScrollytellingScene({ steps }) {
+      const [activeIdx, setActiveIdx] = useState(0);
+      const stepsRef = useRef([]);
+      const containerRef = useRef(null);
+
+      useEffect(() => {
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              const idx = Number(entry.target.dataset.idx);
+              setActiveIdx(idx);
+            }
+          });
+        }, { rootMargin: '-35% 0px -35% 0px', threshold: 0 });
+
+        stepsRef.current.forEach(el => { if (el) observer.observe(el); });
+        return () => observer.disconnect();
+      }, [steps.length]);
+
+      return html`
+        <div ref=${containerRef} class="relative max-w-5xl mx-auto px-8">
+          <div class="flex gap-8">
+            <!-- Sticky visual stage -->
+            <div class="hidden md:block w-[55%] shrink-0">
+              <div class="scene-sticky flex items-center justify-center p-8">
+                <div class="w-full scene-fade" key=${activeIdx}>
+                  ${steps[activeIdx] && steps[activeIdx].render(true)}
+                </div>
+              </div>
+            </div>
+
+            <!-- Scrolling text panels -->
+            <div class="w-full md:w-[45%] py-[30vh]">
+              ${steps.map((step, i) => html`
+                <div
+                  key=${i}
+                  ref=${el => { stepsRef.current[i] = el; }}
+                  data-idx=${i}
+                  class=${"step flex items-center " + (i === activeIdx ? "step-active" : "")}
+                >
+                  <div class="step-card w-full">
+                    <!-- Mobile: show visual inline -->
+                    <div class="md:hidden mb-4 rounded-xl overflow-hidden bg-[#0d1320] border border-slate-800/60 p-4">
+                      ${step.render(i === activeIdx)}
+                    </div>
+                    <div class="bg-[#0d1320]/80 backdrop-blur-sm rounded-xl p-6 border border-slate-800/60 shadow-lg shadow-black/20">
+                      <div class="text-[#5eead4] font-mono text-[11px] tracking-wider uppercase mb-2">${step.label}</div>
+                      <h3 class="text-lg font-bold text-white mb-2 leading-snug">${step.title}</h3>
+                      <p class="text-slate-400 text-sm leading-relaxed">${step.body}</p>
+                    </div>
+                  </div>
+                </div>
+              `)}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ── Demo: How a Skill Loads ─────────────────────────────
+    // Each step shows a phase of the skill loading lifecycle
+
+    function LifecycleVisual({ phase }) {
+      const phases = [
+        { nodes: [
+          { id: 'user', label: 'User Query', x: 50, y: 20, color: '#5eead4', active: true },
+          { id: 'claude', label: 'Claude', x: 50, y: 50, color: '#64748b', active: false },
+          { id: 'skills', label: 'Skills List', x: 50, y: 80, color: '#64748b', active: false },
+        ], edges: [], caption: "A query enters the system" },
+        { nodes: [
+          { id: 'user', label: 'User Query', x: 50, y: 15, color: '#5eead4', active: true },
+          { id: 'claude', label: 'Claude', x: 50, y: 45, color: '#f59e0b', active: true },
+          { id: 's1', label: 'deploy', x: 20, y: 78, color: '#64748b', active: false },
+          { id: 's2', label: 'pr-writer', x: 50, y: 78, color: '#64748b', active: false },
+          { id: 's3', label: 'api-conv', x: 80, y: 78, color: '#64748b', active: false },
+        ], edges: [
+          { from: 'user', to: 'claude' },
+        ], caption: "Claude reads all skill descriptions" },
+        { nodes: [
+          { id: 'user', label: 'User Query', x: 50, y: 15, color: '#5eead4', active: false },
+          { id: 'claude', label: 'Claude', x: 50, y: 45, color: '#f59e0b', active: true },
+          { id: 's1', label: 'deploy', x: 20, y: 78, color: '#334155', active: false },
+          { id: 's2', label: 'pr-writer', x: 50, y: 78, color: '#22c55e', active: true },
+          { id: 's3', label: 'api-conv', x: 80, y: 78, color: '#334155', active: false },
+        ], edges: [
+          { from: 'claude', to: 's2', color: '#22c55e' },
+        ], caption: "Best semantic match selected" },
+        { nodes: [
+          { id: 'claude', label: 'Claude', x: 35, y: 25, color: '#f59e0b', active: true },
+          { id: 's2', label: 'pr-writer', x: 65, y: 25, color: '#22c55e', active: true },
+          { id: 'msg1', label: 'Meta (visible)', x: 35, y: 60, color: '#5eead4', active: true },
+          { id: 'msg2', label: 'Prompt (hidden)', x: 65, y: 60, color: '#a78bfa', active: true },
+          { id: 'ctx', label: 'Context', x: 50, y: 88, color: '#f59e0b', active: true },
+        ], edges: [
+          { from: 's2', to: 'msg1' }, { from: 's2', to: 'msg2' },
+          { from: 'msg1', to: 'ctx' }, { from: 'msg2', to: 'ctx' },
+        ], caption: "Two messages injected into context" },
+        { nodes: [
+          { id: 'claude', label: 'Claude', x: 50, y: 20, color: '#22c55e', active: true },
+          { id: 'ctx', label: 'Enriched Context', x: 50, y: 50, color: '#22c55e', active: true },
+          { id: 'out', label: 'Skill Output', x: 50, y: 80, color: '#5eead4', active: true },
+        ], edges: [
+          { from: 'claude', to: 'ctx' }, { from: 'ctx', to: 'out' },
+        ], caption: "Claude executes with skill instructions" },
+      ];
+
+      const p = phases[phase] || phases[0];
+
+      return html`
+        <div class="relative w-full" style="padding-bottom: 75%;">
+          <svg class="absolute inset-0 w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+            <!-- Edges -->
+            ${p.edges.map((e, i) => {
+              const from = p.nodes.find(n => n.id === e.from);
+              const to = p.nodes.find(n => n.id === e.to);
+              if (!from || !to) return null;
+              return html`
+                <line key=${"e"+i} x1=${from.x} y1=${from.y} x2=${to.x} y2=${to.y}
+                  stroke=${e.color || '#334155'} stroke-width="0.4" opacity="0.6"
+                  stroke-dasharray=${e.color ? "none" : "1,1"}>
+                  <animate attributeName="opacity" from="0" to="0.6" dur="0.5s" fill="freeze" />
+                </line>
+              `;
+            })}
+            <!-- Nodes -->
+            ${p.nodes.map(n => html`
+              <g key=${n.id} transform="translate(${n.x}, ${n.y})">
+                ${n.active && html`
+                  <circle r="7" fill=${n.color} opacity="0.12">
+                    <animate attributeName="r" values="7;9;7" dur="2.5s" repeatCount="indefinite" />
+                  </circle>
+                `}
+                <circle r="4.5" fill=${n.active ? n.color : '#1e293b'} stroke=${n.color} stroke-width="0.6" />
+                <text y="9" text-anchor="middle" fill=${n.active ? '#e2e8f0' : '#64748b'}
+                  font-size="3" font-family="DM Mono, monospace" font-weight="500">${n.label}</text>
+              </g>
+            `)}
+          </svg>
+          <!-- Caption -->
+          <div class="absolute bottom-2 left-0 right-0 text-center">
+            <span class="text-[11px] font-mono text-slate-500 bg-[#0a0e1a]/80 px-3 py-1 rounded-full">${p.caption}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    // ── Demo Steps ──────────────────────────────────────────
+
+    const demoSteps = [
+      {
+        label: "Phase 1",
+        title: "The Query Arrives",
+        body: "A user types a request into Claude Code. At this point, Claude hasn't loaded any skill — it only has the skill descriptions in its system prompt, not the full instructions.",
+        render: () => html`<${LifecycleVisual} phase=${0} />`
+      },
+      {
+        label: "Phase 2",
+        title: "Description Scanning",
+        body: "Claude reads every installed skill's description field. This is pure LLM semantic reasoning — not keyword matching, not regex. Claude is comparing the user's intent against each description to find the best match.",
+        render: () => html`<${LifecycleVisual} phase=${1} />`
+      },
+      {
+        label: "Phase 3",
+        title: "Best Match Selected",
+        body: "The skill with the strongest semantic match wins. Non-matching skills fade out. If no skill matches well enough, none loads. The description field is the entire selection mechanism — if it's vague, the skill is invisible.",
+        render: () => html`<${LifecycleVisual} phase=${2} />`
+      },
+      {
+        label: "Phase 4",
+        title: "Two-Message Injection",
+        body: "The selected skill generates two messages. Message 1 is visible to the user (metadata: which skill loaded). Message 2 is hidden (the full SKILL.md instructions). This split provides transparency without information overload.",
+        render: () => html`<${LifecycleVisual} phase=${3} />`
+      },
+      {
+        label: "Phase 5",
+        title: "Enriched Execution",
+        body: "Claude now has the skill's full instructions in context plus any tool permissions from allowed-tools. It executes the task with specialized knowledge. When done, the skill context reverts and the conversation continues normally.",
+        render: () => html`<${LifecycleVisual} phase=${4} />`
+      },
+    ];
+
+    // ── App ─────────────────────────────────────────────────
+
+    function App() {
+      return html`
+        <div>
+          <${ScrollytellingScene} steps=${demoSteps} />
+        </div>
+      `;
+    }
+
+    render(html`<${App} />`, document.getElementById('app'));
+  </script>
+</body>
+</html>

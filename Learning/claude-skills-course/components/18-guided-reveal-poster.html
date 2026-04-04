@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guided Reveal Poster — Component Demo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['DM Sans', 'sans-serif'], mono: ['DM Mono', 'monospace'] } } }
+    }
+  </script>
+  <style>
+    .grain { background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes hotspotPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(252,211,77,0.4); } 50% { box-shadow: 0 0 0 8px rgba(252,211,77,0); } }
+    @keyframes glowBorder { 0%,100% { border-color: rgba(252,211,77,0.3); } 50% { border-color: rgba(252,211,77,0.6); } }
+    .fade-in { animation: fadeIn 0.5s cubic-bezier(.22,.68,0,.71) forwards; }
+    .hotspot-pulse { animation: hotspotPulse 2s ease-in-out infinite; }
+    .glow-border { animation: glowBorder 2s ease-in-out infinite; }
+    .poster-section { transition: all 0.5s cubic-bezier(.22,.68,0,.71); }
+    .poster-section.dimmed { opacity: 0.12; filter: blur(1px); }
+    .poster-section.revealed { opacity: 1; filter: none; }
+  </style>
+</head>
+<body class="bg-[#0a0e1a] text-slate-200 font-sans grain min-h-screen">
+
+  <div class="max-w-5xl mx-auto px-8 pt-20 pb-8">
+    <div class="text-[#fcd34d] font-mono text-xs tracking-[0.25em] mb-3 uppercase">Component 18</div>
+    <h1 class="text-4xl font-bold text-white mb-3 tracking-tight">Guided Reveal Poster</h1>
+    <p class="text-slate-400 max-w-xl leading-relaxed">A dense reference cheatsheet that reveals itself section by section. Follow the numbered hotspots in sequence, or switch to explore mode and click freely. The final poster is a complete, screenshot-worthy reference.</p>
+  </div>
+
+  <div id="app"></div>
+
+  <div class="max-w-5xl mx-auto px-8 py-20">
+    <div class="border-t border-slate-800 pt-12">
+      <h2 class="text-lg font-bold text-white mb-6">Usage</h2>
+      <pre class="bg-[#0d1320] rounded-xl p-6 font-mono text-sm text-slate-300 border border-slate-800/60 overflow-x-auto"><code>const sections = [
+  {
+    id: 'description-formula', title: 'Description Formula',
+    annotation: 'Start here \u2014 this is the most important thing.',
+    items: [{ label: 'WHAT', text: 'What the skill does' }, ...],
+  },
+  // ...more sections
+];
+
+html\`&lt;\${GuidedRevealPoster} sections=\${sections} title="My Cheatsheet" />\`</code></pre>
+    </div>
+  </div>
+
+  <script type="module">
+    import { h, render } from 'https://esm.sh/preact@10';
+    import { useState, useEffect, useRef, useCallback } from 'https://esm.sh/preact@10/hooks';
+    import htm from 'https://esm.sh/htm@3';
+    const html = htm.bind(h);
+
+    // --- Poster Data ---
+    const sections = [
+      {
+        id: 'description-formula',
+        title: 'The WHAT + WHEN Formula',
+        annotation: 'The single most important line in your skill. It determines whether Claude ever loads the rest.',
+        items: [
+          { label: 'WHAT', text: 'Concrete capability the skill provides', example: '"Generate and run SQL queries against the project database"' },
+          { label: 'WHEN', text: 'Trigger conditions that tell Claude when to load it', example: '"use when user asks about data, metrics, or database schema"' },
+          { label: 'Anti-pattern', text: 'Vague or implementation-focused descriptions', example: '"Helps with data" \u2014 too vague, never triggers' },
+        ],
+        color: '#fcd34d',
+      },
+      {
+        id: 'progressive-disclosure',
+        title: 'Progressive Disclosure (L1 / L2 / L3)',
+        annotation: 'Context is finite. These three levels control what loads when, so you never waste tokens.',
+        items: [
+          { label: 'L1 \u2014 Frontmatter', text: 'Always loaded. ~15 lines. Description, tools, config.', example: 'Multiplied by every skill \u2014 keep it tiny' },
+          { label: 'L2 \u2014 Body', text: 'Loaded on trigger. Core instructions. 50-100 lines.', example: 'Self-contained for the common case' },
+          { label: 'L3 \u2014 References', text: 'Loaded on demand. Deep docs, examples, specs.', example: 'Only pulled when task complexity requires it' },
+        ],
+        color: '#60a5fa',
+      },
+      {
+        id: 'architecture-patterns',
+        title: '5 Architecture Patterns',
+        annotation: 'Not every skill is a monolith. Match the pattern to the problem complexity.',
+        items: [
+          { label: 'Monoskill', text: 'Single SKILL.md, no scripts. For focused, simple tasks.' },
+          { label: 'Scripted', text: 'SKILL.md + scripts/. When you need executable logic.' },
+          { label: 'Thin Router', text: 'Minimal body, routes to references/. For broad domains.' },
+          { label: 'Orchestrator', text: 'Coordinates multiple sub-skills or tools sequentially.' },
+          { label: 'Forked', text: 'Spawns subagents for parallel work. For complex pipelines.' },
+        ],
+        color: '#34d399',
+      },
+      {
+        id: 'autonomy-controls',
+        title: '6 Autonomy Controls',
+        annotation: 'These aren\'t independent toggles. They form a coordinated surface \u2014 each one constrains the others.',
+        items: [
+          { label: 'allowed-tools', text: 'Which tools the skill can use. Scope tightly.' },
+          { label: 'description', text: 'Controls when the skill triggers. The routing scope.' },
+          { label: 'auto-trigger', text: 'Whether Claude can invoke without user action.' },
+          { label: 'per-step', text: 'Constraints on individual steps within execution.' },
+          { label: 'references', text: 'What context is available. Limits information scope.' },
+          { label: 'delegation', text: 'Whether/how the skill can fork into subagents.' },
+        ],
+        color: '#f472b6',
+      },
+      {
+        id: 'testing-phases',
+        title: '3 Testing Phases',
+        annotation: 'Testing skills is different from testing code. You\'re testing a routing + behavior system.',
+        items: [
+          { label: 'Phase 1: Triggering', text: 'Does the skill fire on the right inputs? Does it stay quiet on wrong inputs?' },
+          { label: 'Phase 2: Functional', text: 'When triggered, does it produce correct output? Are tool calls appropriate?' },
+          { label: 'Phase 3: Baseline', text: 'Does the skill degrade Claude\'s baseline capabilities? Context window impact?' },
+        ],
+        color: '#fb923c',
+      },
+      {
+        id: 'ecosystem-decision',
+        title: 'Ecosystem Decision Framework',
+        annotation: 'Not everything should be a skill. Match the mechanism to the job.',
+        items: [
+          { label: 'CLAUDE.md', text: 'Global rules. Always loaded. For project-wide conventions.' },
+          { label: 'Skill', text: 'On-demand capability. Loaded on trigger. For specific tasks.' },
+          { label: 'Hook', text: 'Reactive automation. Fires on tool events. For guardrails.' },
+          { label: 'Subagent', text: 'Parallel worker. Forked from skills. For concurrent tasks.' },
+        ],
+        color: '#c084fc',
+      },
+    ];
+
+    // --- PosterSection ---
+    function PosterSection({ section, index, revealed, isNext, mode, onReveal }) {
+      const isRevealed = revealed.has(section.id);
+      const showHotspot = mode === 'guided' ? isNext : !isRevealed;
+
+      return html\`
+        <div class="poster-section \${isRevealed ? 'revealed' : 'dimmed'} relative"
+          style="\${isRevealed ? '' : 'cursor: pointer'}"
+          onClick=\${() => !isRevealed && onReveal(section.id)}>
+
+          <!-- Hotspot badge -->
+          \${showHotspot && !isRevealed && html\`
+            <div class="absolute -top-2 -left-2 z-10 w-7 h-7 rounded-full bg-[#fcd34d] text-[#0a0e1a] flex items-center justify-center font-mono text-xs font-bold hotspot-pulse">
+              \${index + 1}
+            </div>
+          \`}
+
+          <div class="bg-[#0d1320] border rounded-xl p-5 transition-all \${isRevealed ? 'border-slate-800/60' : 'border-slate-800/30'} \${isNext && !isRevealed ? 'glow-border' : ''}">
+            <!-- Section header -->
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-1 h-6 rounded-full" style="background: \${section.color}"></div>
+              <h3 class="font-bold text-white text-sm">\${section.title}</h3>
+              <span class="font-mono text-xs ml-auto" style="color: \${section.color}">\${String(index + 1).padStart(2, '0')}</span>
+            </div>
+
+            <!-- Items -->
+            <div class="space-y-2">
+              \${section.items.map(item => html\`
+                <div class="flex gap-3">
+                  <span class="font-mono text-xs shrink-0 mt-0.5 w-24 text-right" style="color: \${section.color}">\${item.label}</span>
+                  <div class="flex-1">
+                    <span class="text-slate-300 text-xs">\${item.text}</span>
+                    \${item.example && isRevealed && html\`
+                      <div class="text-slate-500 text-xs font-mono mt-1 italic">\${item.example}</div>
+                    \`}
+                  </div>
+                </div>
+              \`)}
+            </div>
+          </div>
+
+          <!-- Annotation -->
+          \${isRevealed && html\`
+            <div class="fade-in mt-2 ml-4 pl-4 border-l-2 py-1" style="border-color: \${section.color}40">
+              <p class="text-xs leading-relaxed" style="color: \${section.color}cc">\${section.annotation}</p>
+            </div>
+          \`}
+        </div>
+      \`;
+    }
+
+    // --- Main Component ---
+    function GuidedRevealPoster({ sections: sectionData, title }) {
+      const [revealed, setRevealed] = useState(new Set());
+      const [mode, setMode] = useState('guided'); // 'guided' | 'explore'
+      const [guidedIndex, setGuidedIndex] = useState(0);
+
+      const progress = Math.round((revealed.size / sectionData.length) * 100);
+      const allRevealed = revealed.size === sectionData.length;
+
+      const revealSection = useCallback((id) => {
+        if (mode === 'guided') {
+          const expectedId = sectionData[guidedIndex]?.id;
+          if (id !== expectedId) return;
+          setGuidedIndex(prev => prev + 1);
+        }
+        setRevealed(prev => {
+          const next = new Set(prev);
+          next.add(id);
+          return next;
+        });
+      }, [mode, guidedIndex, sectionData]);
+
+      const revealAll = useCallback(() => {
+        const all = new Set(sectionData.map(s => s.id));
+        setRevealed(all);
+        setGuidedIndex(sectionData.length);
+      }, [sectionData]);
+
+      const reset = useCallback(() => {
+        setRevealed(new Set());
+        setGuidedIndex(0);
+      }, []);
+
+      return html\`
+        <div class="max-w-5xl mx-auto px-8 pb-12">
+          <!-- Controls -->
+          <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+            <div class="flex items-center gap-3">
+              <!-- Mode toggle -->
+              <div class="bg-[#0d1320] border border-slate-800/60 rounded-lg flex overflow-hidden">
+                <button onClick=\${() => { setMode('guided'); reset(); }}
+                  class="font-mono text-xs px-3 py-2 transition-all \${mode === 'guided' ? 'bg-[#fcd34d]/10 text-[#fcd34d]' : 'text-slate-500 hover:text-slate-300'}">
+                  Guided
+                </button>
+                <button onClick=\${() => setMode('explore')}
+                  class="font-mono text-xs px-3 py-2 transition-all \${mode === 'explore' ? 'bg-[#fcd34d]/10 text-[#fcd34d]' : 'text-slate-500 hover:text-slate-300'}">
+                  Explore
+                </button>
+              </div>
+              <!-- Progress -->
+              <div class="flex items-center gap-3">
+                <div class="w-24 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div class="h-full bg-[#fcd34d] rounded-full transition-all duration-500"
+                    style="width: \${progress}%"></div>
+                </div>
+                <span class="font-mono text-xs text-slate-500">\${revealed.size}/\${sectionData.length}</span>
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <button onClick=\${revealAll}
+                class="font-mono text-xs px-4 py-2 rounded-lg border border-slate-800/60 text-slate-400 hover:text-white hover:border-slate-600 transition-all \${allRevealed ? 'opacity-30 pointer-events-none' : ''}">
+                Reveal All
+              </button>
+              <button onClick=\${reset}
+                class="font-mono text-xs px-4 py-2 rounded-lg border border-slate-800/60 text-slate-400 hover:text-white hover:border-slate-600 transition-all \${revealed.size === 0 ? 'opacity-30 pointer-events-none' : ''}">
+                Reset
+              </button>
+            </div>
+          </div>
+
+          <!-- Poster title -->
+          <div class="text-center mb-8">
+            <h2 class="text-2xl font-bold text-white tracking-tight">\${title || 'Skill Design Cheatsheet'}</h2>
+            <p class="font-mono text-xs text-slate-600 mt-2">
+              \${mode === 'guided'
+                ? (allRevealed ? 'Complete! Scroll through your reference poster.' : \`Click hotspot \${guidedIndex + 1} to continue\`)
+                : 'Click any dimmed section to reveal it'}
+            </p>
+          </div>
+
+          <!-- Poster grid -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            \${sectionData.map((section, i) => html\`
+              <\${PosterSection}
+                section=\${section}
+                index=\${i}
+                revealed=\${revealed}
+                isNext=\${mode === 'guided' && i === guidedIndex}
+                mode=\${mode}
+                onReveal=\${revealSection} />
+            \`)}
+          </div>
+
+          <!-- Complete state -->
+          \${allRevealed && html\`
+            <div class="fade-in mt-8 bg-[#0d1320] border border-[#fcd34d]/20 rounded-xl p-6 text-center">
+              <div class="text-[#fcd34d] font-mono text-xs tracking-wider uppercase mb-2">Reference Complete</div>
+              <p class="text-slate-400 text-sm">All 6 sections revealed. This poster is now a complete quick-reference for skill design. Screenshot it or bookmark this page.</p>
+            </div>
+          \`}
+        </div>
+      \`;
+    }
+
+    // --- Render ---
+    function App() {
+      return html\`<\${GuidedRevealPoster} sections=\${sections} title="Claude Skill Design Cheatsheet" />\`;
+    }
+
+    render(html\`<\${App} />\`, document.getElementById('app'));
+  </script>
+</body>
+</html>

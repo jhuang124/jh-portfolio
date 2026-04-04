@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Morphing Side-by-Side Compare — Component Demo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['DM Sans', 'sans-serif'], mono: ['DM Mono', 'monospace'] } } }
+    }
+  </script>
+  <style>
+    .grain { background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); }
+    .morph-line { transition: all 0.35s cubic-bezier(.22,.68,0,.71); }
+    .annotation-enter { animation: annotFade 0.4s cubic-bezier(.22,.68,0,.71) forwards; }
+    @keyframes annotFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    .slider-track { -webkit-appearance: none; appearance: none; background: transparent; cursor: pointer; }
+    .slider-track::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(90deg, #334155 0%, #e879f9 50%, #334155 100%); }
+    .slider-track::-webkit-slider-thumb { -webkit-appearance: none; height: 22px; width: 22px; border-radius: 50%; background: #e879f9; margin-top: -8px; box-shadow: 0 0 12px rgba(232,121,249,0.5); cursor: grab; }
+    .slider-track::-moz-range-track { height: 6px; border-radius: 3px; background: linear-gradient(90deg, #334155 0%, #e879f9 50%, #334155 100%); }
+    .slider-track::-moz-range-thumb { height: 22px; width: 22px; border-radius: 50%; background: #e879f9; border: none; box-shadow: 0 0 12px rgba(232,121,249,0.5); cursor: grab; }
+    .diff-highlight-bad { background: rgba(248,113,113,0.12); border-left: 2px solid #f87171; }
+    .diff-highlight-good { background: rgba(74,222,128,0.12); border-left: 2px solid #4ade80; }
+    .diff-highlight-neutral { background: rgba(232,121,249,0.08); border-left: 2px solid rgba(232,121,249,0.3); }
+  </style>
+</head>
+<body class="bg-[#0a0e1a] text-slate-200 font-sans grain min-h-screen">
+
+  <!-- Header -->
+  <div class="max-w-5xl mx-auto px-8 pt-20 pb-8">
+    <div class="text-[#e879f9] font-mono text-xs tracking-[0.25em] mb-3 uppercase">Component 06</div>
+    <h1 class="text-4xl font-bold text-white mb-3 tracking-tight">Morphing Side-by-Side Compare</h1>
+    <p class="text-slate-400 max-w-xl leading-relaxed">Drag the slider to morph between a weak and strong version. Annotations appear at key thresholds showing exactly what changed and why.</p>
+  </div>
+
+  <div id="app"></div>
+
+  <!-- Usage guide -->
+  <div class="max-w-5xl mx-auto px-8 py-20">
+    <div class="border-t border-slate-800 pt-12">
+      <h2 class="text-lg font-bold text-white mb-6">Usage</h2>
+      <pre class="bg-[#0d1320] rounded-xl p-6 font-mono text-sm text-slate-300 border border-slate-800/60 overflow-x-auto"><code>const compareData = {
+  title: "Before vs After",
+  lines: [
+    {
+      bad: "Vague text here",
+      good: "Specific, actionable text here",
+      annotation: "Why this change matters",
+      threshold: 0.3  // when annotation appears (0-1)
+    },
+    // ...more lines
+  ]
+};
+
+html\`&lt;\${MorphingSideBySide} data=\${compareData} />\`</code></pre>
+    </div>
+  </div>
+
+  <script type="module">
+    import { h, render } from 'https://esm.sh/preact@10';
+    import { useState, useEffect, useRef, useCallback, useMemo } from 'https://esm.sh/preact@10/hooks';
+    import htm from 'https://esm.sh/htm@3';
+    const html = htm.bind(h);
+
+    // ── The Reusable Component ──────────────────────────────
+
+    function MorphingSideBySide({ data }) {
+      const [morphValue, setMorphValue] = useState(0);
+      const [isDragging, setIsDragging] = useState(false);
+
+      const handleInput = useCallback((e) => {
+        setMorphValue(Number(e.target.value) / 100);
+      }, []);
+
+      const pct = Math.round(morphValue * 100);
+      const label = pct < 20 ? 'Before' : pct > 80 ? 'After' : `${pct}% transformed`;
+
+      return html`
+        <div class="max-w-5xl mx-auto px-8 pb-12">
+          <!-- Slider control -->
+          <div class="mb-8">
+            <div class="flex items-center justify-between mb-3">
+              <span class="font-mono text-xs text-red-400/80 tracking-wide uppercase">Before</span>
+              <span class="font-mono text-xs text-[#e879f9] tracking-wide">${label}</span>
+              <span class="font-mono text-xs text-green-400/80 tracking-wide uppercase">After</span>
+            </div>
+            <input
+              type="range" min="0" max="100" value=${pct}
+              onInput=${handleInput}
+              onMouseDown=${() => setIsDragging(true)}
+              onMouseUp=${() => setIsDragging(false)}
+              class="slider-track w-full"
+            />
+            <!-- Progress bar visualization -->
+            <div class="mt-2 h-1 rounded-full bg-slate-800 overflow-hidden">
+              <div class="h-full rounded-full transition-all duration-150" style=${{
+                width: `${pct}%`,
+                background: `linear-gradient(90deg, #f87171, #e879f9, #4ade80)`
+              }}></div>
+            </div>
+          </div>
+
+          <!-- Side by side panels -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <!-- Before panel -->
+            <div class="bg-[#0d1320] rounded-xl border border-slate-800/60 overflow-hidden" style=${{ opacity: Math.max(0.4, 1 - morphValue * 0.8) }}>
+              <div class="px-5 py-3 border-b border-slate-800/40 flex items-center gap-2">
+                <div class="w-2.5 h-2.5 rounded-full bg-red-400/60"></div>
+                <span class="font-mono text-xs text-slate-500">SKILL.md — Before</span>
+              </div>
+              <div class="p-5 space-y-0">
+                ${data.lines.map((line, i) => html`
+                  <${MorphLine}
+                    key=${i}
+                    text=${line.bad}
+                    active=${morphValue < (line.threshold || 0.5)}
+                    side="bad"
+                    morphValue=${morphValue}
+                  />
+                `)}
+              </div>
+            </div>
+            <!-- After panel -->
+            <div class="bg-[#0d1320] rounded-xl border border-slate-800/60 overflow-hidden" style=${{ opacity: Math.max(0.4, 0.2 + morphValue * 0.8) }}>
+              <div class="px-5 py-3 border-b border-slate-800/40 flex items-center gap-2">
+                <div class="w-2.5 h-2.5 rounded-full bg-green-400/60"></div>
+                <span class="font-mono text-xs text-slate-500">SKILL.md — After</span>
+              </div>
+              <div class="p-5 space-y-0">
+                ${data.lines.map((line, i) => html`
+                  <${MorphLine}
+                    key=${i}
+                    text=${line.good}
+                    active=${morphValue >= (line.threshold || 0.5)}
+                    side="good"
+                    morphValue=${morphValue}
+                  />
+                `)}
+              </div>
+            </div>
+          </div>
+
+          <!-- Annotations -->
+          <div class="space-y-3">
+            ${data.lines.map((line, i) => {
+              const thresh = line.threshold || 0.5;
+              const visible = morphValue >= thresh - 0.05;
+              const opacity = visible ? Math.min(1, (morphValue - thresh + 0.05) / 0.15) : 0;
+              if (!visible) return null;
+              return html`
+                <div key=${i} class="annotation-enter flex items-start gap-3 bg-[#0d1320] rounded-lg border border-slate-800/60 p-4" style=${{ opacity }}>
+                  <div class="mt-0.5 w-5 h-5 rounded-full bg-[#e879f9]/20 flex items-center justify-center flex-shrink-0">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1v10M1 6h10" stroke="#e879f9" stroke-width="1.5" stroke-linecap="round"/></svg>
+                  </div>
+                  <div>
+                    <div class="font-mono text-xs text-[#e879f9] mb-1">${line.label || `Change ${i + 1}`}</div>
+                    <div class="text-sm text-slate-300 leading-relaxed">${line.annotation}</div>
+                  </div>
+                </div>
+              `;
+            })}
+          </div>
+        </div>
+      `;
+    }
+
+    function MorphLine({ text, active, side, morphValue }) {
+      const highlightClass = active
+        ? (side === 'bad' ? 'diff-highlight-bad' : 'diff-highlight-good')
+        : 'diff-highlight-neutral';
+
+      return html`
+        <div class="morph-line px-3 py-2 rounded font-mono text-sm leading-relaxed ${highlightClass}" style=${{
+          opacity: active ? 1 : 0.35,
+          transform: active ? 'none' : 'translateX(2px)'
+        }}>
+          <span class="text-slate-300">${text}</span>
+        </div>
+      `;
+    }
+
+    // ── Demo Data ──────────────────────────────────────────
+
+    const demoData = {
+      title: "SKILL.md Description: Weak vs Strong",
+      lines: [
+        {
+          bad: "name: deploy",
+          good: "name: deploy",
+          annotation: "The name stays short and recognizable. No change needed here.",
+          label: "Name field",
+          threshold: 0.95
+        },
+        {
+          bad: "description: Handles deployment tasks",
+          good: 'description: "Use when the user asks to deploy, ship, push to production, or release. Runs the deploy pipeline, verifies health checks, and rolls back on failure."',
+          annotation: "The vague 'Handles deployment tasks' gives Claude nothing to match on. A strong description starts with explicit trigger phrases: 'Use when...' so Claude knows exactly when to load this skill.",
+          label: "Trigger phrases",
+          threshold: 0.15
+        },
+        {
+          bad: "allowed-tools: Read Write Bash Edit",
+          good: 'allowed-tools: Read Bash(git*) Bash(ssh*) Bash(curl*)',
+          annotation: "Overly broad tool access is a security risk. The improved version scopes Bash to only the commands deploy actually needs. Write and Edit are removed since deploy shouldn't modify local files.",
+          label: "Tool scoping",
+          threshold: 0.35
+        },
+        {
+          bad: "# Instructions",
+          good: "# Instructions",
+          annotation: "Section header stays the same.",
+          label: "Section header",
+          threshold: 0.95
+        },
+        {
+          bad: "Deploy the application when asked.",
+          good: "1. Run `git diff --stat HEAD~1` to show what will be deployed",
+          annotation: "Generic instructions produce unpredictable behavior. Step-by-step numbered instructions give Claude a reliable execution path. Start with showing the user what's about to happen.",
+          label: "Step-by-step actions",
+          threshold: 0.5
+        },
+        {
+          bad: "Make sure it works after deploying.",
+          good: "2. Execute deploy via `ssh deploy@prod 'cd /app && git pull && make restart'`",
+          annotation: "Telling Claude to 'make sure it works' is meaningless without specifying HOW to verify. The improved version gives a concrete deploy command.",
+          label: "Concrete commands",
+          threshold: 0.6
+        },
+        {
+          bad: "",
+          good: "3. Verify: `curl -sf https://app.example.com/health` must return 200",
+          annotation: "The original had no verification step at all. The improved version adds an explicit health check with a pass/fail condition Claude can evaluate.",
+          label: "Health check",
+          threshold: 0.72
+        },
+        {
+          bad: "Roll back if there are problems.",
+          good: '4. On failure: `ssh deploy@prod \'cd /app && git checkout HEAD~1 && make restart\'` then report the error',
+          annotation: "The original says 'roll back if there are problems' but never defines what a problem IS or HOW to roll back. The improved version gives an explicit rollback command and requires error reporting.",
+          label: "Explicit rollback",
+          threshold: 0.85
+        }
+      ]
+    };
+
+    // ── App ────────────────────────────────────────────────
+
+    function App() {
+      return html`<${MorphingSideBySide} data=${demoData} />`;
+    }
+
+    render(html`<${App} />`, document.getElementById('app'));
+  </script>
+</body>
+</html>

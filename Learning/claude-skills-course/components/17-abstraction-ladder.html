@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Abstraction Ladder — Component Demo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['DM Sans', 'sans-serif'], mono: ['DM Mono', 'monospace'] } } }
+    }
+  </script>
+  <style>
+    .grain { background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); }
+    @keyframes fadeSlideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes arrowPulse { 0%,100% { opacity: 0.3; } 50% { opacity: 0.7; } }
+    .fade-slide-up { animation: fadeSlideUp 0.45s cubic-bezier(.22,.68,0,.71) forwards; }
+    .arrow-pulse { animation: arrowPulse 2s ease-in-out infinite; }
+    .ladder-rung { transition: all 0.35s cubic-bezier(.22,.68,0,.71); }
+    .ladder-rung:hover { transform: translateX(4px); }
+  </style>
+</head>
+<body class="bg-[#0a0e1a] text-slate-200 font-sans grain min-h-screen">
+
+  <div class="max-w-5xl mx-auto px-8 pt-20 pb-8">
+    <div class="text-[#c084fc] font-mono text-xs tracking-[0.25em] mb-3 uppercase">Component 17</div>
+    <h1 class="text-4xl font-bold text-white mb-3 tracking-tight">Abstraction Ladder</h1>
+    <p class="text-slate-400 max-w-xl leading-relaxed">Navigate between concrete examples, general principles, and meta-frameworks. Click any level to expand it. Switch between ladders to see how different specifics map to the same structural patterns.</p>
+  </div>
+
+  <div id="app"></div>
+
+  <div class="max-w-5xl mx-auto px-8 py-20">
+    <div class="border-t border-slate-800 pt-12">
+      <h2 class="text-lg font-bold text-white mb-6">Usage</h2>
+      <pre class="bg-[#0d1320] rounded-xl p-6 font-mono text-sm text-slate-300 border border-slate-800/60 overflow-x-auto"><code>const ladders = [
+  {
+    id: 'a', title: 'Description Design',
+    levels: [
+      { level: 'concrete', label: 'Example', content: '...', detail: '...' },
+      { level: 'principle', label: 'Principle', content: '...', detail: '...' },
+      { level: 'meta', label: 'Meta-Framework', content: '...', detail: '...' },
+    ]
+  },
+  // ...more ladders
+];
+
+html\`&lt;\${AbstractionLadder} ladders=\${ladders} />\`</code></pre>
+    </div>
+  </div>
+
+  <script type="module">
+    import { h, render } from 'https://esm.sh/preact@10';
+    import { useState, useEffect, useRef, useCallback } from 'https://esm.sh/preact@10/hooks';
+    import htm from 'https://esm.sh/htm@3';
+    const html = htm.bind(h);
+
+    // --- Data ---
+    const ladders = [
+      {
+        id: 'a', title: 'Description Design',
+        levels: [
+          {
+            level: 'concrete', label: 'Concrete Example',
+            content: "description: 'Helps with data' \u2192 skill never fires",
+            detail: "This vague description gives Claude nothing to match against. When a user asks 'analyze my CSV file,' Claude can't connect that request to a skill described as 'helps with data.' The skill sits unused because its routing label is too generic.",
+            code: "# Bad\ndescription: 'Helps with data'\n\n# Good  \ndescription: 'Analyze CSV, JSON, or Excel files \u2014 summarize columns, find outliers, generate charts'"
+          },
+          {
+            level: 'principle', label: 'General Principle',
+            content: "Description-First Design: the description is the routing label, not metadata",
+            detail: "Claude reads every skill's description at session start to decide which to load. It's not documentation \u2014 it's a search query in reverse. Write it for the WHAT (capability) and WHEN (trigger conditions), not the HOW (implementation).",
+            code: "# Formula\ndescription: '[WHAT it does] \u2014 [WHEN to use it]'\n\n# Example\ndescription: 'Generate and run SQL queries against the project database \u2014 use when user asks about data, metrics, or database schema'"
+          },
+          {
+            level: 'meta', label: 'Meta-Framework',
+            content: "Skills are information architecture \u2014 what loads when matters more than what you write",
+            detail: "The entire skill system is an information architecture problem. Descriptions control routing (what loads). Frontmatter controls scope (what's allowed). Body controls behavior (what happens). References control depth (what's available). Each layer exists to manage a finite context window \u2014 the fundamental constraint.",
+          },
+        ],
+        arrows: [
+          'This bad description instantiates the principle: without WHAT + WHEN, Claude can\'t route.',
+          'Description-First Design is one surface of the broader truth: skills are information architecture.'
+        ]
+      },
+      {
+        id: 'b', title: 'Controlled Autonomy',
+        levels: [
+          {
+            level: 'concrete', label: 'Concrete Example',
+            content: "A deploy skill with allowed-tools: 'Read Write Bash Edit' auto-triggered on 'how is deploy configured?'",
+            detail: "This skill has full filesystem and shell access, but triggers on a read-only question. A user asking 'how is deploy configured?' doesn't expect the skill to have write/execute permissions. The mismatch between trigger conditions and granted permissions creates risk.",
+            code: "# Over-permissioned\nallowed-tools:\n  - Read\n  - Write  # not needed for 'how is X configured?'\n  - Bash   # definitely not needed\n  - Edit   # not needed either\n\n# Right-sized\nallowed-tools:\n  - Read\n  - Glob\n  - Grep"
+          },
+          {
+            level: 'principle', label: 'General Principle',
+            content: "Controlled Autonomy: scope permissions to exactly what the skill needs",
+            detail: "The allowed-tools field isn't just a safety mechanism \u2014 it's a signal to Claude about what kind of work this skill does. Broad permissions say 'do anything.' Narrow permissions say 'this is a focused, well-defined task.' Constraints make Claude more effective, not less.",
+            code: "# The 6 autonomy controls:\n# 1. allowed-tools (tool access)\n# 2. description (trigger scope) \n# 3. auto-trigger (when it fires)\n# 4. per-step constraints (within execution)\n# 5. references (what context is available)\n# 6. subagent delegation (parallel scope)"
+          },
+          {
+            level: 'meta', label: 'Meta-Framework',
+            content: "The autonomy control surface is coordinated, not independent toggles",
+            detail: "Each autonomy control (tools, triggers, permissions, references, constraints, delegation) isn't a standalone toggle. They form a coordinated surface. Over-permissioning one dimension undermines the constraints of others. A skill with careful tool limits but overly broad trigger conditions still fires when it shouldn't.",
+          },
+        ],
+        arrows: [
+          'The over-permissioned deploy skill shows the principle in action: mismatched tools + triggers.',
+          'Controlled Autonomy is one dimension of the coordinated autonomy surface.'
+        ]
+      },
+      {
+        id: 'c', title: 'Progressive Disclosure',
+        levels: [
+          {
+            level: 'concrete', label: 'Concrete Example',
+            content: "2000-line SKILL.md covering React, Node, Docker, K8s all inline",
+            detail: "This monolithic skill file consumes ~50% of the context window the moment it loads. Every subsequent user message and Claude response has to compete for the remaining space. The skill technically works but degrades Claude's performance on everything else.",
+            code: "# Monolithic (bad)\nSKILL.md \u2192 2000 lines loaded immediately\n\n# Progressive (good)\nSKILL.md \u2192 80 lines (frontmatter + core instructions)\n  references/react.md \u2192 loaded on demand\n  references/node.md \u2192 loaded on demand  \n  references/docker.md \u2192 loaded on demand"
+          },
+          {
+            level: 'principle', label: 'General Principle',
+            content: "Progressive Disclosure: 3 levels \u2014 frontmatter (always), body (on trigger), references (on demand)",
+            detail: "L1 (Frontmatter): Always loaded. ~5-15 lines. The routing label and config. Must be tiny because it's multiplied by every skill in the project.\n\nL2 (Body): Loaded on trigger. The core instructions. Should be self-contained for the common case.\n\nL3 (References): Loaded on demand. Deep docs, examples, specs. Only pulled when the task requires them.",
+            code: "# L1: Always loaded (~15 lines)\n---\ndescription: '...'\nallowed-tools: [...]\n---\n\n# L2: Loaded on trigger (~50-100 lines)\nCore instructions here...\n\n# L3: On demand\nFor React patterns, see references/react.md\nFor Docker config, see references/docker.md"
+          },
+          {
+            level: 'meta', label: 'Meta-Framework',
+            content: "Context is finite \u2014 every token your skill consumes is a token that can't be used for work",
+            detail: "The context window is a zero-sum resource. Unlike disk space or memory, you can't add more. Every token used for instructions is a token unavailable for the user's actual content, Claude's reasoning, and tool outputs. Progressive disclosure is how you make the context window work for you instead of against you.",
+          },
+        ],
+        arrows: [
+          'The 2000-line monolith shows why progressive disclosure matters: it consumes the context.',
+          'Progressive Disclosure is a strategy derived from the fundamental constraint: context is finite.'
+        ]
+      },
+    ];
+
+    const levelColors = {
+      concrete: { bg: '#0d1320', border: '#334155', accent: '#94a3b8', label: 'Concrete' },
+      principle: { bg: '#0d1320', border: '#6d28d9', accent: '#c084fc', label: 'Principle' },
+      meta: { bg: '#0d1320', border: '#7e22ce', accent: '#e879f9', label: 'Meta' },
+    };
+
+    // --- LadderLevel ---
+    function LadderLevel({ level, expanded, onClick, index }) {
+      const colors = levelColors[level.level];
+      const icons = { concrete: '\u25CB', principle: '\u25C7', meta: '\u25B3' };
+
+      return html\`
+        <div class="ladder-rung cursor-pointer" onClick=\${onClick}>
+          <div class="bg-[#0d1320] border rounded-xl p-5 transition-all duration-300"
+            style="border-color: \${expanded ? colors.accent + '80' : '#1e293b'}; \${expanded ? 'box-shadow: 0 0 20px ' + colors.accent + '15' : ''}">
+
+            <!-- Header -->
+            <div class="flex items-center gap-3 mb-1">
+              <span class="text-lg" style="color: \${colors.accent}">\${icons[level.level]}</span>
+              <span class="font-mono text-xs tracking-wider uppercase" style="color: \${colors.accent}">\${colors.label}</span>
+            </div>
+
+            <!-- Content -->
+            <p class="text-white text-sm font-medium leading-relaxed mt-2">\${level.content}</p>
+
+            <!-- Expanded detail -->
+            \${expanded && html\`
+              <div class="fade-slide-up mt-4 pt-4 border-t" style="border-color: \${colors.accent}20">
+                <p class="text-slate-400 text-sm leading-relaxed">\${level.detail}</p>
+                \${level.code && html\`
+                  <pre class="mt-3 bg-[#0a0e1a] border border-slate-800/40 rounded-lg p-4 font-mono text-xs text-slate-400 overflow-x-auto whitespace-pre-wrap">\${level.code}</pre>
+                \`}
+              </div>
+            \`}
+          </div>
+        </div>
+      \`;
+    }
+
+    // --- Arrow between levels ---
+    function LadderArrow({ text, direction, expanded }) {
+      return html\`
+        <div class="flex items-center gap-3 py-2 pl-6">
+          <div class="flex flex-col items-center">
+            <svg width="20" height="32" viewBox="0 0 20 32">
+              <line x1="10" y1="0" x2="10" y2="24" stroke="#c084fc" stroke-width="1.5" opacity="0.4" />
+              \${direction === 'up' ? html\`
+                <polygon points="4,8 10,0 16,8" fill="#c084fc" opacity="0.4" />
+              \` : html\`
+                <polygon points="4,20 10,28 16,20" fill="#c084fc" opacity="0.4" />
+              \`}
+            </svg>
+          </div>
+          \${expanded && html\`
+            <span class="font-mono text-xs text-slate-600 fade-slide-up italic leading-snug max-w-md">\${text}</span>
+          \`}
+        </div>
+      \`;
+    }
+
+    // --- Main Component ---
+    function AbstractionLadder({ ladders: ladderData }) {
+      const [activeLadder, setActiveLadder] = useState(0);
+      const [expandedLevel, setExpandedLevel] = useState(null);
+
+      const ladder = ladderData[activeLadder];
+
+      const toggleLevel = useCallback((index) => {
+        setExpandedLevel(prev => prev === index ? null : index);
+      }, []);
+
+      const changeLadder = useCallback((index) => {
+        setActiveLadder(index);
+        setExpandedLevel(null);
+      }, []);
+
+      const navigateLevel = useCallback((direction) => {
+        if (expandedLevel === null) {
+          setExpandedLevel(direction === 'up' ? 2 : 0);
+        } else {
+          const next = expandedLevel + (direction === 'up' ? 1 : -1);
+          if (next >= 0 && next <= 2) setExpandedLevel(next);
+        }
+      }, [expandedLevel]);
+
+      return html\`
+        <div class="max-w-5xl mx-auto px-8 pb-12">
+          <!-- Ladder selector -->
+          <div class="flex gap-2 mb-8">
+            \${ladderData.map((l, i) => html\`
+              <button
+                onClick=\${() => changeLadder(i)}
+                class="font-mono text-xs px-4 py-2 rounded-lg border transition-all \${i === activeLadder
+                  ? 'border-[#c084fc]/50 text-[#c084fc] bg-[#c084fc]/5'
+                  : 'border-slate-800/60 text-slate-500 hover:text-slate-300 hover:border-slate-700'}">
+                Ladder \${String.fromCharCode(65 + i)}: \${l.title}
+              </button>
+            \`)}
+          </div>
+
+          <!-- Navigation hint -->
+          <div class="flex items-center gap-4 mb-6">
+            <button onClick=\${() => navigateLevel('down')}
+              class="font-mono text-xs px-3 py-1.5 rounded-lg border border-slate-800/60 text-slate-500 hover:text-[#c084fc] hover:border-[#c084fc]/30 transition-all">
+              \u2193 More Concrete
+            </button>
+            <button onClick=\${() => navigateLevel('up')}
+              class="font-mono text-xs px-3 py-1.5 rounded-lg border border-slate-800/60 text-slate-500 hover:text-[#c084fc] hover:border-[#c084fc]/30 transition-all">
+              \u2191 More Abstract
+            </button>
+            <span class="font-mono text-xs text-slate-600">
+              \${expandedLevel === null ? 'Click a level to expand' : 'Navigate up/down the abstraction ladder'}
+            </span>
+          </div>
+
+          <!-- The Ladder -->
+          <div class="space-y-0">
+            <!-- Meta (top) -->
+            <\${LadderLevel}
+              level=\${ladder.levels[2]}
+              expanded=\${expandedLevel === 2}
+              onClick=\${() => toggleLevel(2)}
+              index=\${2} />
+
+            <!-- Arrow: principle -> meta -->
+            <\${LadderArrow}
+              text=\${ladder.arrows[1]}
+              direction="up"
+              expanded=\${expandedLevel === 1 || expandedLevel === 2} />
+
+            <!-- Principle (middle) -->
+            <\${LadderLevel}
+              level=\${ladder.levels[1]}
+              expanded=\${expandedLevel === 1}
+              onClick=\${() => toggleLevel(1)}
+              index=\${1} />
+
+            <!-- Arrow: concrete -> principle -->
+            <\${LadderArrow}
+              text=\${ladder.arrows[0]}
+              direction="up"
+              expanded=\${expandedLevel === 0 || expandedLevel === 1} />
+
+            <!-- Concrete (bottom) -->
+            <\${LadderLevel}
+              level=\${ladder.levels[0]}
+              expanded=\${expandedLevel === 0}
+              onClick=\${() => toggleLevel(0)}
+              index=\${0} />
+          </div>
+
+          <!-- Scale indicator -->
+          <div class="mt-8 flex items-center gap-4">
+            <div class="flex items-center gap-2">
+              \${Object.entries(levelColors).map(([key, val]) => html\`
+                <div class="flex items-center gap-1.5">
+                  <div class="w-2 h-2 rounded-full" style="background: \${val.accent}"></div>
+                  <span class="font-mono text-xs" style="color: \${val.accent}">\${val.label}</span>
+                </div>
+              \`)}
+            </div>
+            <span class="font-mono text-xs text-slate-700 ml-auto">\u2190 Specific \u00B7 General \u2192</span>
+          </div>
+        </div>
+      \`;
+    }
+
+    // --- Render ---
+    function App() {
+      return html\`<\${AbstractionLadder} ladders=\${ladders} />\`;
+    }
+
+    render(html\`<\${App} />\`, document.getElementById('app'));
+  </script>
+</body>
+</html>

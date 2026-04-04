@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tradeoff Radar Overlay — Component Demo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['DM Sans', 'sans-serif'], mono: ['DM Mono', 'monospace'] } } }
+    }
+  </script>
+  <style>
+    .grain { background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); }
+    @keyframes radarFadeIn { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: scale(1); } }
+    .radar-fade-in { animation: radarFadeIn 0.5s cubic-bezier(.22,.68,0,.71) forwards; transform-origin: center; }
+    @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-slide-in { animation: fadeSlideIn 0.35s cubic-bezier(.22,.68,0,.71) forwards; }
+  </style>
+</head>
+<body class="bg-[#0a0e1a] text-slate-200 font-sans grain min-h-screen">
+
+  <div class="max-w-5xl mx-auto px-8 pt-20 pb-8">
+    <div class="text-[#fbbf24] font-mono text-xs tracking-[0.25em] mb-3 uppercase">Component 12</div>
+    <h1 class="text-4xl font-bold text-white mb-3 tracking-tight">Tradeoff Radar Overlay</h1>
+    <p class="text-slate-400 max-w-xl leading-relaxed">Compare skill architecture patterns across five dimensions. Toggle patterns on and off to see how their shapes overlap and diverge. Hover any axis for an explanation.</p>
+  </div>
+
+  <div id="app"></div>
+
+  <div class="max-w-5xl mx-auto px-8 py-20">
+    <div class="border-t border-slate-800 pt-12">
+      <h2 class="text-lg font-bold text-white mb-6">Usage</h2>
+      <pre class="bg-[#0d1320] rounded-xl p-6 font-mono text-sm text-slate-300 border border-slate-800/60 overflow-x-auto"><code>const axes = [
+  { key: 'simplicity', label: 'Simplicity', tip: '...' },
+  // ...
+];
+
+const options = [
+  { id: 'mono', label: 'Monoskill', color: '#fbbf24', values: { simplicity: 0.9, ... } },
+  // ...
+];
+
+html`&lt;${TradeoffRadar} axes=${axes} options=${options} />`</code></pre>
+    </div>
+  </div>
+
+  <script type="module">
+    import { h, render } from 'https://esm.sh/preact@10';
+    import { useState, useEffect, useRef, useCallback, useMemo } from 'https://esm.sh/preact@10/hooks';
+    import htm from 'https://esm.sh/htm@3';
+    const html = htm.bind(h);
+
+    // ── The Reusable Component ──────────────────────────────
+
+    function TradeoffRadar({ axes, options }) {
+      const [enabled, setEnabled] = useState(() => {
+        const map = {};
+        options.forEach(o => { map[o.id] = true; });
+        return map;
+      });
+      const [hoveredAxis, setHoveredAxis] = useState(null);
+      const [hoveredOption, setHoveredOption] = useState(null);
+
+      const cx = 220, cy = 220, radius = 160;
+      const numAxes = axes.length;
+
+      const getPoint = useCallback((axisIdx, value) => {
+        const angle = (Math.PI * 2 * axisIdx) / numAxes - Math.PI / 2;
+        const r = radius * value;
+        return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+      }, [numAxes]);
+
+      const getPolygonPoints = useCallback((values) => {
+        return axes.map((axis, i) => {
+          const pt = getPoint(i, values[axis.key] || 0);
+          return `${pt.x},${pt.y}`;
+        }).join(' ');
+      }, [axes, getPoint]);
+
+      const getLabelPos = useCallback((idx) => {
+        const angle = (Math.PI * 2 * idx) / numAxes - Math.PI / 2;
+        const r = radius + 32;
+        return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+      }, [numAxes]);
+
+      const toggle = useCallback((id) => {
+        setEnabled(prev => ({ ...prev, [id]: !prev[id] }));
+      }, []);
+
+      return html`
+        <div class="max-w-5xl mx-auto px-8 pb-12">
+          <div class="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
+            <!-- Radar chart -->
+            <div class="bg-[#0d1320] rounded-2xl border border-slate-800/60 p-6 flex items-center justify-center">
+              <svg viewBox="0 0 440 440" class="w-full max-w-lg">
+                <!-- Grid rings -->
+                ${[0.2, 0.4, 0.6, 0.8, 1.0].map(level => {
+                  const pts = axes.map((_, i) => {
+                    const pt = getPoint(i, level);
+                    return `${pt.x},${pt.y}`;
+                  }).join(' ');
+                  return html`<polygon points=${pts} fill="none" stroke="#1e293b" stroke-width="1" opacity=${level === 1 ? 0.6 : 0.3} />`;
+                })}
+
+                <!-- Axis lines -->
+                ${axes.map((axis, i) => {
+                  const pt = getPoint(i, 1);
+                  const isHovered = hoveredAxis === axis.key;
+                  return html`
+                    <line x1=${cx} y1=${cy} x2=${pt.x} y2=${pt.y}
+                      stroke=${isHovered ? '#fbbf24' : '#1e293b'} stroke-width=${isHovered ? 1.5 : 1}
+                      style="transition: all 0.2s ease" />
+                  `;
+                })}
+
+                <!-- Data polygons -->
+                ${options.map(opt => {
+                  if (!enabled[opt.id]) return null;
+                  const isHighlighted = hoveredOption === opt.id;
+                  return html`
+                    <polygon
+                      points=${getPolygonPoints(opt.values)}
+                      fill=${opt.color} fill-opacity=${isHighlighted ? 0.28 : 0.12}
+                      stroke=${opt.color} stroke-width=${isHighlighted ? 2.5 : 1.5}
+                      stroke-opacity=${isHighlighted ? 1 : 0.6}
+                      class="radar-fade-in"
+                      style="transition: all 0.3s cubic-bezier(.22,.68,0,.71)" />
+                  `;
+                })}
+
+                <!-- Data points -->
+                ${options.map(opt => {
+                  if (!enabled[opt.id]) return null;
+                  const isHighlighted = hoveredOption === opt.id;
+                  return axes.map((axis, i) => {
+                    const pt = getPoint(i, opt.values[axis.key] || 0);
+                    return html`
+                      <circle cx=${pt.x} cy=${pt.y} r=${isHighlighted ? 4.5 : 3}
+                        fill=${opt.color} opacity=${isHighlighted ? 1 : 0.7}
+                        style="transition: all 0.2s ease" />
+                    `;
+                  });
+                })}
+
+                <!-- Axis labels (interactive) -->
+                ${axes.map((axis, i) => {
+                  const pos = getLabelPos(i);
+                  const isHovered = hoveredAxis === axis.key;
+                  return html`
+                    <g onMouseEnter=${() => setHoveredAxis(axis.key)}
+                       onMouseLeave=${() => setHoveredAxis(null)}
+                       style="cursor: pointer">
+                      <text x=${pos.x} y=${pos.y}
+                        text-anchor="middle" dominant-baseline="central"
+                        fill=${isHovered ? '#fbbf24' : '#94a3b8'}
+                        font-family="DM Mono, monospace" font-size="11" font-weight="500"
+                        style="transition: fill 0.2s ease">
+                        ${axis.label}
+                      </text>
+                    </g>
+                  `;
+                })}
+              </svg>
+            </div>
+
+            <!-- Controls panel -->
+            <div class="flex flex-col gap-4">
+              <!-- Toggle buttons -->
+              <div class="bg-[#0d1320] rounded-xl border border-slate-800/60 p-5">
+                <div class="font-mono text-xs text-slate-500 tracking-wide uppercase mb-4">Patterns</div>
+                ${options.map(opt => html`
+                  <button
+                    onClick=${() => toggle(opt.id)}
+                    onMouseEnter=${() => setHoveredOption(opt.id)}
+                    onMouseLeave=${() => setHoveredOption(null)}
+                    class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg mb-2 transition-all duration-200 text-left
+                      ${enabled[opt.id] ? 'bg-slate-800/50' : 'bg-transparent opacity-50 hover:opacity-70'}">
+                    <div class="w-3 h-3 rounded-sm flex-shrink-0 transition-all duration-200"
+                      style="background: ${enabled[opt.id] ? opt.color : '#334155'}; box-shadow: ${enabled[opt.id] ? `0 0 8px ${opt.color}40` : 'none'}" />
+                    <span class="font-mono text-sm ${enabled[opt.id] ? 'text-white' : 'text-slate-500'}">${opt.label}</span>
+                    <span class="ml-auto font-mono text-xs ${enabled[opt.id] ? 'text-slate-400' : 'text-slate-600'}">${enabled[opt.id] ? 'ON' : 'OFF'}</span>
+                  </button>
+                `)}
+              </div>
+
+              <!-- Axis tooltip -->
+              <div class="bg-[#0d1320] rounded-xl border border-slate-800/60 p-5 min-h-[140px]">
+                <div class="font-mono text-xs text-slate-500 tracking-wide uppercase mb-3">Axis Detail</div>
+                ${hoveredAxis ? html`
+                  <div class="fade-slide-in" key=${hoveredAxis}>
+                    <div class="text-[#fbbf24] font-mono text-sm font-bold mb-2">${axes.find(a => a.key === hoveredAxis)?.label}</div>
+                    <p class="text-slate-400 text-sm leading-relaxed">${axes.find(a => a.key === hoveredAxis)?.tip}</p>
+                    <!-- Per-option values -->
+                    <div class="mt-3 space-y-1">
+                      ${options.map(opt => {
+                        if (!enabled[opt.id]) return null;
+                        const val = opt.values[hoveredAxis] || 0;
+                        return html`
+                          <div class="flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-sm" style="background: ${opt.color}" />
+                            <span class="font-mono text-xs text-slate-500 flex-1">${opt.label}</span>
+                            <div class="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                              <div class="h-full rounded-full" style="width: ${val * 100}%; background: ${opt.color}; transition: width 0.3s ease" />
+                            </div>
+                          </div>
+                        `;
+                      })}
+                    </div>
+                  </div>
+                ` : html`
+                  <p class="text-slate-600 text-sm italic">Hover an axis label to see details</p>
+                `}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ── Demo Data ──────────────────────────────────────────
+
+    const axes = [
+      { key: 'simplicity', label: 'Simplicity', tip: 'How easy is the pattern to understand and implement? Fewer moving parts = higher simplicity. A single-file skill scores high; a multi-agent orchestrator scores low.' },
+      { key: 'capability', label: 'Capability', tip: 'How powerful and flexible is the system? Can it handle multi-step workflows, chained tools, and complex decision trees? Higher = more things you can do.' },
+      { key: 'context', label: 'Context Efficiency', tip: 'How much of the LLM context window does this pattern consume? High = uses less context (more budget left for the actual task). Low = burns tokens on routing and coordination.' },
+      { key: 'portability', label: 'Portability', tip: 'Can this skill be moved between projects, teams, or Claude configurations without changes? High = drop it in anywhere. Low = tightly coupled to a specific setup.' },
+      { key: 'scalability', label: 'Scalability', tip: 'How well does the pattern hold up as you add more skills? At 5 skills, everything works. At 50, only some patterns stay manageable.' }
+    ];
+
+    const options = [
+      {
+        id: 'mono', label: 'Monoskill', color: '#fbbf24',
+        values: { simplicity: 0.95, capability: 0.3, context: 0.85, portability: 0.9, scalability: 0.25 }
+      },
+      {
+        id: 'router', label: 'Thin Router', color: '#67e8f9',
+        values: { simplicity: 0.6, capability: 0.8, context: 0.55, portability: 0.85, scalability: 0.9 }
+      },
+      {
+        id: 'orch', label: 'Orchestrator', color: '#f472b6',
+        values: { simplicity: 0.2, capability: 0.95, context: 0.25, portability: 0.35, scalability: 0.55 }
+      }
+    ];
+
+    // ── Render ──────────────────────────────────────────────
+
+    function App() {
+      return html`<${TradeoffRadar} axes=${axes} options=${options} />`;
+    }
+
+    render(html`<${App} />`, document.getElementById('app'));
+  </script>
+</body>
+</html>

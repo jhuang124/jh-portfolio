@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hotspot Annotation Engine — Component Demo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['DM Sans', 'sans-serif'], mono: ['DM Mono', 'monospace'] } } }
+    }
+  </script>
+  <style>
+    .grain { background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); }
+    @keyframes calloutIn { from { opacity:0; transform: scale(0.97) translateY(4px); } to { opacity:1; transform: scale(1) translateY(0); } }
+    .callout-in { animation: calloutIn 0.25s ease-out; }
+    .hs-line { transition: all 0.15s ease; cursor: pointer; }
+    .hs-line:hover { background: rgba(251,146,60,0.06); }
+    .hs-line-active { background: rgba(251,146,60,0.1) !important; border-left: 2px solid #fb923c !important; }
+    .hs-line-visited { border-left: 2px solid rgba(251,146,60,0.25); }
+  </style>
+</head>
+<body class="bg-[#0a0e1a] text-slate-200 font-sans grain min-h-screen">
+
+  <div class="max-w-5xl mx-auto px-8 pt-20 pb-8">
+    <div class="text-[#fb923c] font-mono text-xs tracking-[0.25em] mb-3 uppercase">Component 05</div>
+    <h1 class="text-4xl font-bold text-white mb-3 tracking-tight">Hotspot Annotation Engine</h1>
+    <p class="text-slate-400 max-w-xl leading-relaxed">Clickable regions on any diagram, code block, or image. Click a region to see its annotation positioned inline — no split attention. The most reusable diagram primitive in the library.</p>
+  </div>
+
+  <div id="app"></div>
+
+  <script type="module">
+    import { h, render } from 'https://esm.sh/preact@10';
+    import { useState } from 'https://esm.sh/preact@10/hooks';
+    import htm from 'https://esm.sh/htm@3';
+    const html = htm.bind(h);
+
+    // ── The Reusable Component ──────────────────────────────
+    // Each "line" in the content can have a hotspotId.
+    // Clicking a line activates its hotspot annotation.
+
+    function HotspotCode({ lines, hotspots, title }) {
+      const [active, setActive] = useState(null);
+      const [visited, setVisited] = useState(new Set());
+
+      function activate(id) {
+        if (!id) return;
+        setActive(active === id ? null : id);
+        setVisited(v => new Set([...v, id]));
+      }
+
+      const activeHotspot = hotspots.find(h => h.id === active);
+      const allVisited = hotspots.every(h => visited.has(h.id));
+
+      return html`
+        <div class="max-w-4xl mx-auto px-8 py-12">
+          <!-- Header + progress -->
+          <div class="flex items-center justify-between mb-6">
+            ${title && html`<h3 class="text-lg font-bold text-white">${title}</h3>`}
+            <div class="flex items-center gap-3">
+              <div class="flex gap-1.5">
+                ${hotspots.map(h => html`
+                  <div key=${h.id} class=${"w-2 h-2 rounded-full transition-all " + (active === h.id ? "bg-[#fb923c] scale-125" : visited.has(h.id) ? "bg-[#fb923c]/60" : "bg-slate-800")} />
+                `)}
+              </div>
+              <span class="text-slate-600 font-mono text-xs">${visited.size}/${hotspots.length}</span>
+            </div>
+          </div>
+
+          <!-- Code block with clickable lines -->
+          <div class="bg-[#0d1320] rounded-2xl border border-slate-800/60 overflow-hidden">
+            <div class="px-5 py-3 border-b border-slate-800/40 flex items-center gap-3">
+              <div class="flex gap-1.5">
+                <div class="w-2.5 h-2.5 rounded-full bg-[#f87171]/60"></div>
+                <div class="w-2.5 h-2.5 rounded-full bg-[#facc15]/60"></div>
+                <div class="w-2.5 h-2.5 rounded-full bg-[#34d399]/60"></div>
+              </div>
+              <span class="font-mono text-xs text-slate-500">deploy-vercel / SKILL.md</span>
+            </div>
+            <div class="py-1">
+              ${lines.map((line, i) => {
+                const hsId = line.hotspot;
+                const isActive = active === hsId;
+                const isVisited = visited.has(hsId);
+                const isClickable = !!hsId;
+                const color = line.type === 'delim' ? 'text-slate-600' :
+                             line.type === 'key' ? 'text-[#c084fc]' :
+                             line.type === 'heading' ? 'text-white font-medium' :
+                             line.type === 'ref' ? 'text-[#c084fc]' :
+                             'text-slate-400';
+                return html`
+                  <div key=${i}
+                    onClick=${() => isClickable && activate(hsId)}
+                    class=${"flex font-mono text-xs leading-6 px-4 border-l-2 " + color + " " +
+                      (isActive ? "hs-line-active" : isVisited && isClickable ? "hs-line hs-line-visited" : isClickable ? "hs-line border-transparent" : "border-transparent")}>
+                    <span class="text-slate-700 w-8 shrink-0 text-right mr-4 select-none">${line.num}</span>
+                    <span class="whitespace-pre flex-1">${line.text || ' '}</span>
+                    ${isClickable && !isVisited && !isActive && html`
+                      <span class="text-[#fb923c]/40 text-[10px] self-center ml-2 select-none">click</span>
+                    `}
+                  </div>
+                `;
+              })}
+            </div>
+          </div>
+
+          <!-- Active callout -->
+          ${activeHotspot && html`
+            <div class="mt-4 callout-in" key=${activeHotspot.id}>
+              <div class="bg-[#0d1320] rounded-2xl border border-[#fb923c]/20 overflow-hidden">
+                <div class="px-5 py-3 border-b border-slate-800/40 flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <div class="w-2 h-2 rounded-full bg-[#fb923c]"></div>
+                    <span class="font-mono text-xs text-[#fb923c] tracking-wider uppercase">${activeHotspot.label}</span>
+                  </div>
+                  <button onClick=${() => setActive(null)} class="text-slate-600 hover:text-slate-400 text-xs transition">dismiss</button>
+                </div>
+                <div class="p-5">
+                  <p class="text-slate-300 text-sm leading-relaxed mb-3">${activeHotspot.body}</p>
+                  ${activeHotspot.detail && html`
+                    <div class="bg-[#0a0e1a] rounded-xl border border-slate-800/40 p-3 mb-3">
+                      <p class="text-slate-500 text-xs leading-relaxed">${activeHotspot.detail}</p>
+                    </div>
+                  `}
+                  ${activeHotspot.warning && html`
+                    <div class="flex items-start gap-2 text-xs">
+                      <span class="text-[#f87171] mt-0.5 shrink-0">!</span>
+                      <span class="text-[#f87171]/80">${activeHotspot.warning}</span>
+                    </div>
+                  `}
+                </div>
+              </div>
+            </div>
+          `}
+
+          <!-- Completion -->
+          ${allVisited && !activeHotspot && html`
+            <div class="mt-6 text-center callout-in">
+              <div class="bg-[#0d1320] rounded-2xl border border-[#fb923c]/20 px-8 py-6 inline-block">
+                <div class="text-[#fb923c] font-mono text-xs tracking-wider uppercase mb-2">All regions explored</div>
+                <p class="text-slate-400 text-sm">You've annotated every part of the SKILL.md. Click any region again to review.</p>
+              </div>
+            </div>
+          `}
+        </div>
+      `;
+    }
+
+    // ── Demo: Annotated SKILL.md ────────────────────────────
+
+    const hotspots = [
+      {
+        id: 'name', label: 'Skill Name',
+        body: 'The skill identifier. Must be kebab-case, no spaces, no capitals. This becomes the /slash-command — users type /deploy-vercel to invoke it.',
+        detail: 'Must match the folder name. Reserved prefixes: "claude-" and "anthropic-" are forbidden.',
+      },
+      {
+        id: 'desc', label: 'Description — The Routing Label',
+        body: 'The most important field. Claude reads this to decide whether to load the skill. Follows the WHAT + WHEN formula: "Deploy Next.js to Vercel" (what) + "Use when pushing to production, setting up previews, or configuring env vars" (when).',
+        detail: 'Capped at 250 characters in the skill listing. Front-load the critical trigger phrases. This field alone determines whether your skill fires automatically.',
+        warning: 'If this is vague (e.g., "Handles deployments"), Claude has no reason to select this skill over any other. The instructions below — no matter how good — will never load.',
+      },
+      {
+        id: 'dmi', label: 'disable-model-invocation',
+        body: 'Set to true: only the user can trigger this skill (via /deploy-vercel). Claude will never auto-trigger it. Essential for skills with side effects — you don\'t want Claude deciding to deploy on its own.',
+        detail: 'When true, the description is NOT loaded into Claude\'s system prompt, saving context budget. The skill becomes invisible to Claude\'s routing — manual-only.',
+      },
+      {
+        id: 'tools', label: 'allowed-tools — Permission Scope',
+        body: 'Tools Claude can use without asking permission while this skill is active. Scoped tightly: Read (always safe) + Bash limited to "npx vercel *" commands only. No Write, no Edit, no unrestricted Bash.',
+        detail: 'Syntax: "Read Bash(npx vercel *)" allows Read tool fully and Bash tool only for commands starting with "npx vercel". This is the minimum viable permission set for this task.',
+        warning: 'Over-permissioning (e.g., "Read Write Bash Edit") means Claude can modify any file and run any command during skill execution. Scope to exactly what the skill needs.',
+      },
+      {
+        id: 'effort', label: 'Effort Level',
+        body: 'Controls Claude\'s reasoning depth during skill execution. "high" means thorough analysis — good for deployment where you want Claude to check carefully. Options: low, medium, high, max (Opus only).',
+        detail: 'Overrides the session-level effort for the duration of this skill only. Reverts when the skill completes.',
+      },
+      {
+        id: 'body', label: 'SKILL.md Body — Level 2',
+        body: 'The instruction set. Loaded only when the skill triggers (Level 2 of progressive disclosure). Contains the workflow steps, prerequisites, error handling. Keep under 500 lines — move detailed docs to references/.',
+        detail: 'This is NOT a dumping ground. Include only what Claude needs to execute the task. Detailed API guides, lengthy examples, and reference material belong in the references/ directory.',
+      },
+      {
+        id: 'ref', label: 'Reference Link — Level 3',
+        body: 'A pointer to a reference file in the skill\'s directory. Claude reads this file only if it needs the API details — Level 3 of progressive disclosure. The reference is never loaded unless Claude navigates to it.',
+        detail: 'File lives at: deploy-vercel/references/vercel-api-guide.md. Could contain API endpoints, rate limits, auth token setup — anything too detailed for the main body.',
+      },
+    ];
+
+    const codeLines = [
+      { num: 1, text: '---', type: 'delim' },
+      { num: 2, text: 'name: deploy-vercel', type: 'key', hotspot: 'name' },
+      { num: 3, text: 'description: "Deploy Next.js to Vercel.', type: 'key', hotspot: 'desc' },
+      { num: 4, text: '  Use when pushing to production, setting', hotspot: 'desc' },
+      { num: 5, text: '  up previews, or configuring env vars."', hotspot: 'desc' },
+      { num: 6, text: 'disable-model-invocation: true', type: 'key', hotspot: 'dmi' },
+      { num: 7, text: 'allowed-tools: "Read Bash(npx vercel *)"', type: 'key', hotspot: 'tools' },
+      { num: 8, text: 'effort: high', type: 'key', hotspot: 'effort' },
+      { num: 9, text: '---', type: 'delim' },
+      { num: 10, text: '' },
+      { num: 11, text: '# Deploy to Vercel', type: 'heading', hotspot: 'body' },
+      { num: 12, text: '', hotspot: 'body' },
+      { num: 13, text: '## Prerequisites', type: 'heading', hotspot: 'body' },
+      { num: 14, text: 'Verify `vercel` CLI installed.', hotspot: 'body' },
+      { num: 15, text: 'Check .env.production exists.', hotspot: 'body' },
+      { num: 16, text: '', hotspot: 'body' },
+      { num: 17, text: '## Steps', type: 'heading', hotspot: 'body' },
+      { num: 18, text: '1. Run `npm run build`', hotspot: 'body' },
+      { num: 19, text: '2. Run `npx vercel --prod`', hotspot: 'body' },
+      { num: 20, text: '3. Verify deployment URL returns 200', hotspot: 'body' },
+      { num: 21, text: '', hotspot: 'body' },
+      { num: 22, text: '## Error Handling', type: 'heading', hotspot: 'body' },
+      { num: 23, text: 'If build fails: check Node version.', hotspot: 'body' },
+      { num: 24, text: 'If deploy fails: verify token with', hotspot: 'body' },
+      { num: 25, text: '  `npx vercel whoami`', hotspot: 'body' },
+      { num: 26, text: '' },
+      { num: 27, text: 'For API details, see:', hotspot: 'ref' },
+      { num: 28, text: '  references/vercel-api-guide.md', type: 'ref', hotspot: 'ref' },
+    ];
+
+    function App() {
+      return html`<${HotspotCode} lines=${codeLines} hotspots=${hotspots} title="Anatomy of a SKILL.md" />`;
+    }
+
+    render(html`<${App} />`, document.getElementById('app'));
+  </script>
+</body>
+</html>

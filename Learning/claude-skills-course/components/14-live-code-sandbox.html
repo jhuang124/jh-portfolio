@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Code Sandbox — Component Demo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['DM Sans', 'sans-serif'], mono: ['DM Mono', 'monospace'] } } }
+    }
+  </script>
+  <style>
+    .grain { background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); }
+    @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes checkPop { 0% { transform: scale(0); } 60% { transform: scale(1.2); } 100% { transform: scale(1); } }
+    .fade-slide-in { animation: fadeSlideIn 0.3s cubic-bezier(.22,.68,0,.71) forwards; }
+    .check-pop { animation: checkPop 0.3s cubic-bezier(.22,.68,0,.71) forwards; }
+    textarea { resize: none; }
+    textarea:focus { outline: none; }
+    textarea::placeholder { color: #475569; }
+  </style>
+</head>
+<body class="bg-[#0a0e1a] text-slate-200 font-sans grain min-h-screen">
+
+  <div class="max-w-5xl mx-auto px-8 pt-20 pb-8">
+    <div class="text-[#34d399] font-mono text-xs tracking-[0.25em] mb-3 uppercase">Component 14</div>
+    <h1 class="text-4xl font-bold text-white mb-3 tracking-tight">Live Code Sandbox</h1>
+    <p class="text-slate-400 max-w-xl leading-relaxed">Write a SKILL.md description field. Watch the live preview show which queries would trigger your skill, track your character budget, and see which quality criteria you've met.</p>
+  </div>
+
+  <div id="app"></div>
+
+  <div class="max-w-5xl mx-auto px-8 py-20">
+    <div class="border-t border-slate-800 pt-12">
+      <h2 class="text-lg font-bold text-white mb-6">Usage</h2>
+      <pre class="bg-[#0d1320] rounded-xl p-6 font-mono text-sm text-slate-300 border border-slate-800/60 overflow-x-auto"><code>const checks = [
+  { id: 'verb', label: 'Has action verb?', test: (code) => /^(Use|Run|Create|Generate|Review|Deploy|Analyze)/i.test(code.trim()) },
+  // ...
+];
+
+const testQueries = [
+  { query: 'Sample query', keywords: ['keyword1', 'keyword2'] },
+  // ...
+];
+
+html`&lt;${LiveCodeSandbox} checks=${checks} testQueries=${testQueries} maxChars=${250} placeholder="..." />`</code></pre>
+    </div>
+  </div>
+
+  <script type="module">
+    import { h, render } from 'https://esm.sh/preact@10';
+    import { useState, useEffect, useRef, useCallback, useMemo } from 'https://esm.sh/preact@10/hooks';
+    import htm from 'https://esm.sh/htm@3';
+    const html = htm.bind(h);
+
+    // ── The Reusable Component ──────────────────────────────
+
+    function LiveCodeSandbox({ checks, testQueries, maxChars, placeholder, initialCode }) {
+      const [code, setCode] = useState(initialCode || '');
+      const textareaRef = useRef(null);
+
+      const charCount = code.length;
+      const charPct = Math.min((charCount / maxChars) * 100, 100);
+      const overBudget = charCount > maxChars;
+
+      const checkResults = useMemo(() => {
+        return checks.map(check => ({
+          ...check,
+          passed: check.test(code)
+        }));
+      }, [code, checks]);
+
+      const allPassed = checkResults.every(c => c.passed);
+
+      const queryMatches = useMemo(() => {
+        if (!code.trim()) return testQueries.map(q => ({ ...q, matches: false, reason: 'empty' }));
+        const lower = code.toLowerCase();
+        return testQueries.map(q => {
+          const matchedKeywords = q.keywords.filter(kw => lower.includes(kw.toLowerCase()));
+          const matches = matchedKeywords.length >= q.threshold;
+          return { ...q, matches, matchedKeywords };
+        });
+      }, [code, testQueries]);
+
+      const handleInput = useCallback((e) => {
+        setCode(e.target.value);
+      }, []);
+
+      return html`
+        <div class="max-w-5xl mx-auto px-8 pb-12">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Editor pane -->
+            <div class="flex flex-col gap-4">
+              <div class="bg-[#0d1320] rounded-2xl border border-slate-800/60 overflow-hidden flex flex-col">
+                <div class="flex items-center justify-between px-4 py-2.5 border-b border-slate-800/60">
+                  <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-red-500/60" />
+                    <div class="w-3 h-3 rounded-full bg-yellow-500/60" />
+                    <div class="w-3 h-3 rounded-full bg-green-500/60" />
+                  </div>
+                  <span class="font-mono text-xs text-slate-500">SKILL.md description</span>
+                </div>
+                <div class="p-4">
+                  <textarea
+                    ref=${textareaRef}
+                    value=${code}
+                    onInput=${handleInput}
+                    placeholder=${placeholder}
+                    class="w-full h-44 bg-[#0a0e1a] text-slate-200 font-mono text-sm leading-relaxed p-4 rounded-lg border border-slate-800/40 focus:border-[#34d399]/40 transition-colors"
+                    spellcheck="false"
+                  />
+                </div>
+                <!-- Character budget -->
+                <div class="px-4 pb-4">
+                  <div class="flex items-center justify-between mb-1.5">
+                    <span class="font-mono text-xs ${overBudget ? 'text-red-400' : 'text-slate-500'}">${charCount} / ${maxChars} chars</span>
+                    ${overBudget && html`<span class="font-mono text-xs text-red-400">Over budget!</span>`}
+                  </div>
+                  <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                    <div class="h-full rounded-full transition-all duration-300 ease-out"
+                      style="width: ${charPct}%; background: ${overBudget ? '#ef4444' : charPct > 80 ? '#fbbf24' : '#34d399'}" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Checklist -->
+              <div class="bg-[#0d1320] rounded-xl border border-slate-800/60 p-5">
+                <div class="flex items-center justify-between mb-4">
+                  <span class="font-mono text-xs text-slate-500 tracking-wide uppercase">Quality Criteria</span>
+                  <span class="font-mono text-xs ${allPassed ? 'text-[#34d399]' : 'text-slate-600'}">${checkResults.filter(c => c.passed).length}/${checks.length}</span>
+                </div>
+                <div class="space-y-2.5">
+                  ${checkResults.map(check => html`
+                    <div class="flex items-center gap-3" key=${check.id}>
+                      <div class="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 transition-all duration-200
+                        ${check.passed ? 'bg-[#34d399]/20' : 'bg-slate-800/60'}">
+                        ${check.passed ? html`
+                          <svg class="w-3.5 h-3.5 text-[#34d399] check-pop" viewBox="0 0 16 16" fill="none">
+                            <path d="M3 8.5L6.5 12L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                          </svg>
+                        ` : html`
+                          <div class="w-1.5 h-1.5 rounded-full bg-slate-600" />
+                        `}
+                      </div>
+                      <span class="text-sm ${check.passed ? 'text-[#34d399]' : 'text-slate-500'} transition-colors duration-200">${check.label}</span>
+                    </div>
+                  `)}
+                </div>
+              </div>
+            </div>
+
+            <!-- Preview pane -->
+            <div class="flex flex-col gap-4">
+              <div class="bg-[#0d1320] rounded-2xl border border-slate-800/60 p-5">
+                <div class="font-mono text-xs text-slate-500 tracking-wide uppercase mb-4">Trigger Simulation</div>
+                <p class="text-slate-600 text-xs mb-4">Would this description match these queries?</p>
+                <div class="space-y-2.5">
+                  ${queryMatches.map(q => html`
+                    <div class="flex items-start gap-3 px-3 py-2.5 rounded-lg transition-all duration-200
+                      ${q.matches ? 'bg-emerald-950/20 border border-emerald-800/30' : 'bg-slate-900/30 border border-slate-800/30'}"
+                      key=${q.query}>
+                      <div class="mt-0.5 flex-shrink-0">
+                        ${q.matches ? html`
+                          <div class="w-5 h-5 rounded-full bg-[#34d399]/20 flex items-center justify-center">
+                            <svg class="w-3 h-3 text-[#34d399]" viewBox="0 0 16 16" fill="none">
+                              <path d="M3 8.5L6.5 12L13 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                          </div>
+                        ` : html`
+                          <div class="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center">
+                            <svg class="w-3 h-3 text-slate-600" viewBox="0 0 16 16" fill="none">
+                              <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                          </div>
+                        `}
+                      </div>
+                      <div class="flex-1 min-w-0">
+                        <p class="text-sm ${q.matches ? 'text-emerald-300' : 'text-slate-500'}">"${q.query}"</p>
+                        ${q.matchedKeywords?.length > 0 && html`
+                          <div class="flex flex-wrap gap-1 mt-1.5">
+                            ${q.matchedKeywords.map(kw => html`
+                              <span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[#34d399]/10 text-[#34d399]">${kw}</span>
+                            `)}
+                          </div>
+                        `}
+                      </div>
+                      <span class="font-mono text-xs ${q.matches ? 'text-[#34d399]' : 'text-slate-600'} flex-shrink-0 mt-0.5">
+                        ${q.matches ? 'MATCH' : 'MISS'}
+                      </span>
+                    </div>
+                  `)}
+                </div>
+              </div>
+
+              <!-- Live preview of the description -->
+              <div class="bg-[#0d1320] rounded-xl border border-slate-800/60 p-5">
+                <div class="font-mono text-xs text-slate-500 tracking-wide uppercase mb-3">Live Preview</div>
+                ${code.trim() ? html`
+                  <div class="bg-[#0a0e1a] rounded-lg border border-slate-800/40 p-4">
+                    <div class="font-mono text-xs text-slate-600 mb-2">description:</div>
+                    <p class="text-sm text-slate-300 leading-relaxed font-mono">${code}</p>
+                  </div>
+                ` : html`
+                  <div class="text-slate-600 text-sm italic py-4 text-center">Start typing to see your description here</div>
+                `}
+              </div>
+
+              <!-- Score summary -->
+              ${code.trim() && html`
+                <div class="bg-[#0d1320] rounded-xl border border-slate-800/60 p-5 fade-slide-in">
+                  <div class="font-mono text-xs text-slate-500 tracking-wide uppercase mb-3">Score</div>
+                  <div class="grid grid-cols-3 gap-4">
+                    <div class="text-center">
+                      <div class="text-2xl font-bold ${checkResults.filter(c => c.passed).length === checks.length ? 'text-[#34d399]' : 'text-slate-400'}">
+                        ${checkResults.filter(c => c.passed).length}/${checks.length}
+                      </div>
+                      <div class="font-mono text-xs text-slate-600 mt-1">Criteria</div>
+                    </div>
+                    <div class="text-center">
+                      <div class="text-2xl font-bold ${queryMatches.filter(q => q.matches).length >= 3 ? 'text-[#34d399]' : 'text-slate-400'}">
+                        ${queryMatches.filter(q => q.matches).length}/${testQueries.length}
+                      </div>
+                      <div class="font-mono text-xs text-slate-600 mt-1">Matches</div>
+                    </div>
+                    <div class="text-center">
+                      <div class="text-2xl font-bold ${!overBudget ? 'text-[#34d399]' : 'text-red-400'}">
+                        ${overBudget ? '+' + (charCount - maxChars) : maxChars - charCount}
+                      </div>
+                      <div class="font-mono text-xs text-slate-600 mt-1">${overBudget ? 'Over' : 'Remaining'}</div>
+                    </div>
+                  </div>
+                </div>
+              `}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ── Demo Data ──────────────────────────────────────────
+
+    const checks = [
+      {
+        id: 'verb',
+        label: 'Starts with an action verb',
+        test: (code) => /^\s*(Use|Run|Create|Generate|Review|Deploy|Analyze|Build|Check|Write|Set up|Configure|Scaffold|Audit|Explain|Format|Lint|Test|Debug|Fix|Migrate|Refactor)/i.test(code)
+      },
+      {
+        id: 'useWhen',
+        label: 'Contains "Use when..." or "Trigger when..."',
+        test: (code) => /(use when|trigger when|fires when|activate when|run when)/i.test(code)
+      },
+      {
+        id: 'domain',
+        label: 'Names a specific tool or domain',
+        test: (code) => /(PR|pull request|API|endpoint|deploy|security|test|lint|format|scaffold|migrate|database|CSS|TypeScript|React|Vercel|GitHub|Docker|CI|pipeline)/i.test(code)
+      },
+      {
+        id: 'length',
+        label: 'Under 250 characters',
+        test: (code) => code.length > 0 && code.length <= 250
+      }
+    ];
+
+    const testQueries = [
+      { query: 'Create a PR from this diff', keywords: ['pr', 'pull request', 'diff', 'create', 'generate'], threshold: 2 },
+      { query: 'Review this code for security issues', keywords: ['review', 'security', 'audit', 'vulnerability', 'check'], threshold: 2 },
+      { query: 'Set up an Express API endpoint', keywords: ['api', 'endpoint', 'set up', 'create', 'scaffold', 'express', 'route'], threshold: 2 },
+      { query: 'Deploy this app to production', keywords: ['deploy', 'production', 'vercel', 'ship', 'release', 'publish'], threshold: 1 }
+    ];
+
+    const placeholder = 'Use this skill to generate pull request descriptions from code diffs. Trigger when the user asks to create, write, or draft a PR. Analyzes git diffs and produces structured PR summaries.';
+
+    // ── Render ──────────────────────────────────────────────
+
+    function App() {
+      return html`<${LiveCodeSandbox}
+        checks=${checks}
+        testQueries=${testQueries}
+        maxChars=${250}
+        placeholder=${placeholder}
+        initialCode="" />`;
+    }
+
+    render(html`<${App} />`, document.getElementById('app'));
+  </script>
+</body>
+</html>

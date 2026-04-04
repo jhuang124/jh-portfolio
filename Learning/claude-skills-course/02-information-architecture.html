@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Module 2: The Information Architecture — Claude Skills Course</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] } } }
+    }
+  </script>
+  <style>
+    .fade-in { animation: fadeIn 0.35s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-200 font-sans min-h-screen">
+  <div id="app"></div>
+  <script type="module">
+    import { h, render } from 'https://esm.sh/preact@10';
+    import { useState } from 'https://esm.sh/preact@10/hooks';
+    import htm from 'https://esm.sh/htm@3';
+    const html = htm.bind(h);
+
+    // ── Data ──────────────────────────────────────────────────
+
+    const disclosureLevels = [
+      { level: 1, name: "Frontmatter", when: "Always loaded", color: "amber", size: "~100 words", detail: "Name + description. Loaded into Claude's system prompt for EVERY conversation. This is the routing label from Module 1. Kept tiny because it competes with every other skill's frontmatter for a shared 15K-character budget.", items: ["name", "description", "allowed-tools", "disable-model-invocation"] },
+      { level: 2, name: "SKILL.md Body", when: "Loaded on trigger", color: "blue", size: "<500 lines", detail: "Full instructions, step-by-step workflows, examples. Only loaded when Claude decides this skill matches the user's query. This is your main instruction set — but it's NOT a dumping ground. Keep it focused on what Claude needs to execute the task.", items: ["Step-by-step instructions", "Key examples", "Error handling", "Output format specs"] },
+      { level: 3, name: "Reference Files", when: "Loaded on demand", color: "purple", size: "Unlimited", detail: "Detailed docs, API guides, templates, large examples. Claude navigates to these ONLY when it needs specific detail. Most of the time, the SKILL.md body is enough. This is where you put everything that would bloat the body.", items: ["references/api-guide.md", "references/examples/", "assets/template.md", "scripts/validate.py"] },
+    ];
+
+    const budgetItems = [
+      { name: "api-conventions", desc: "REST API conventions for this codebase. Use when writing endpoints or routes.", chars: 78 },
+      { name: "pr-writer", desc: "Generate PR descriptions from git diffs. Use when committing, opening PRs, or summarizing staged changes.", chars: 104 },
+      { name: "security-audit", desc: "Analyze code for security vulnerabilities, injection risks, and auth flaws. Use when reviewing PRs, auditing code, or scanning for OWASP issues.", chars: 146 },
+      { name: "deploy-vercel", desc: "Deploy Next.js applications to Vercel. Use when pushing to production, setting up preview deployments, or configuring environment variables.", chars: 140 },
+      { name: "frontend-design", desc: "Create distinctive, production-grade frontend interfaces with high design quality. Use when building web components, pages, or applications.", chars: 140 },
+      { name: "test-generator", desc: "Generate unit and integration tests. Use when writing tests, improving coverage, or creating test fixtures.", chars: 105 },
+      { name: "db-migration", desc: "Create and manage database migrations. Use when changing schema, adding tables, or modifying columns.", chars: 98 },
+      { name: "docker-setup", desc: "Configure Docker containers and compose files. Use when containerizing apps or setting up dev environments.", chars: 107 },
+    ];
+
+    const patternQuiz = [
+      {
+        scenario: "A skill that enforces your team's code style guidelines (indentation, naming, import order).",
+        options: [
+          { name: "Monoskill", correct: true, why: "Simple conventions that fit in a single SKILL.md. No scripts needed, no reference files — just clear rules Claude follows." },
+          { name: "Thin Router", correct: false, why: "Overkill. Style rules don't need 30 reference files. A single focused SKILL.md handles this." },
+          { name: "Orchestrator", correct: false, why: "No multi-step workflow or MCP coordination needed. This is guidance, not orchestration." },
+        ]
+      },
+      {
+        scenario: "A skill that generates interactive HTML dashboards with charts, animations, and custom styling from data.",
+        options: [
+          { name: "Scripted Skill", correct: true, why: "Needs bundled scripts (chart libraries, template generators) and assets (CSS templates, example outputs). The scripts do heavy lifting that pure instructions can't." },
+          { name: "Monoskill", correct: false, why: "Too complex for instructions alone. Chart generation, styling logic, and template filling need actual scripts." },
+          { name: "Forked Skill", correct: false, why: "context: fork isolates execution in a subagent. This skill needs to write files in the user's project, not run in isolation." },
+        ]
+      },
+      {
+        scenario: "A comprehensive Angular development skill covering 30+ topics: components, routing, forms, testing, state management, SSR, i18n, etc.",
+        options: [
+          { name: "Thin Router", correct: true, why: "The canonical pattern for large domains. A lean SKILL.md routes to 30+ reference files in references/. Claude loads only the relevant reference for the current task — never all 30 at once." },
+          { name: "Monoskill", correct: false, why: "30 topics in a single SKILL.md would be thousands of lines. Claude would choke on the context. You'd blow past the 500-line recommendation." },
+          { name: "Orchestrator", correct: false, why: "This is knowledge/guidance, not a multi-step workflow. An orchestrator coordinates actions across tools and MCPs." },
+        ]
+      },
+      {
+        scenario: "A skill that analyzes a codebase for technical debt by reading hundreds of files and generating a report.",
+        options: [
+          { name: "Forked Skill", correct: true, why: "Reading hundreds of files fills the context window fast. context: fork runs this in a subagent with its own context, returning a summary to the main conversation without polluting it." },
+          { name: "Thin Router", correct: false, why: "This is a task (analyze), not a knowledge domain (reference). The skill needs execution isolation, not content routing." },
+          { name: "Scripted Skill", correct: false, why: "Scripts help, but the core issue is context pollution from reading many files. Forking solves that. A scripted skill could be part of the solution, but the architecture choice is fork." },
+        ]
+      },
+      {
+        scenario: "A skill that onboards customers by creating accounts, setting up payments, creating subscriptions, and sending welcome emails — all via different MCP servers.",
+        options: [
+          { name: "Orchestrator", correct: true, why: "Multi-step workflow coordinating multiple MCPs (payment, subscription, email). Sequential with dependencies — step 3 needs the customer ID from step 1. This is classic orchestration." },
+          { name: "Scripted Skill", correct: false, why: "Scripts can't call MCP tools. The orchestration happens through Claude's tool-calling, guided by skill instructions." },
+          { name: "Forked Skill", correct: false, why: "The user needs to see progress and potentially intervene. An isolated subagent can't show the onboarding flow step by step." },
+        ]
+      },
+    ];
+
+    // ── Shared Components ────────────────────────────────────
+
+    function ProgressBar({ current, total }) {
+      const pct = ((current + 1) / total) * 100;
+      return html`
+        <div class="fixed top-0 left-0 right-0 z-50 bg-slate-950/80 backdrop-blur-sm border-b border-slate-800">
+          <div class="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between">
+            <a href="index.html" class="text-slate-500 hover:text-slate-300 text-sm transition">← Course Overview</a>
+            <span class="text-slate-500 text-sm font-medium">Module 2 of 4</span>
+            <span class="text-slate-500 text-sm">${current + 1} / ${total}</span>
+          </div>
+          <div class="h-0.5 bg-slate-800"><div class="h-full bg-blue-500 transition-all duration-500" style=${{ width: pct + '%' }}></div></div>
+        </div>
+      `;
+    }
+
+    function Nav({ section, total, setSection }) {
+      return html`
+        <div class="flex justify-between items-center mt-12 pt-8 border-t border-slate-800">
+          ${section > 0
+            ? html`<button onClick=${() => setSection(section - 1)} class="text-slate-400 hover:text-white transition">← Previous</button>`
+            : html`<a href="01-the-routing-problem.html" class="text-slate-400 hover:text-white transition">← Module 1</a>`}
+          ${section < total - 1
+            ? html`<button onClick=${() => setSection(section + 1)} class="px-6 py-2.5 rounded-lg font-medium transition bg-blue-600 hover:bg-blue-500 text-white">Next →</button>`
+            : html`<a href="03-autonomy-control-surface.html" class="px-6 py-2.5 rounded-lg font-medium bg-blue-600 hover:bg-blue-500 text-white transition">Next Module →</a>`}
+        </div>
+      `;
+    }
+
+    // ── Section 0: Title ─────────────────────────────────────
+
+    function TitleSection() {
+      return html`
+        <div class="text-center py-16">
+          <div class="text-blue-400 font-mono text-sm tracking-widest mb-4">MODULE 2 OF 4</div>
+          <h1 class="text-5xl font-extrabold text-white mb-6 tracking-tight">The Information Architecture</h1>
+          <p class="text-xl text-slate-400 max-w-xl mx-auto leading-relaxed">What goes where — and why it matters more than what you write.</p>
+        </div>
+      `;
+    }
+
+    // ── Section 1: Progressive Disclosure ────────────────────
+
+    function ProgressiveDisclosure() {
+      const [activeLevel, setActiveLevel] = useState(null);
+      const [sorted, setSorted] = useState({ 1: [], 2: [], 3: [] });
+      const [phase, setPhase] = useState('explore'); // explore | sort | reveal
+
+      const sortItems = [
+        { text: "name: deploy-vercel", level: 1 },
+        { text: "description: Deploy Next.js to Vercel...", level: 1 },
+        { text: "Step 1: Run the test suite", level: 2 },
+        { text: "Step 2: Build the application", level: 2 },
+        { text: "Error: If build fails, check Node version", level: 2 },
+        { text: "references/vercel-api-guide.md", level: 3 },
+        { text: "scripts/check-env-vars.py", level: 3 },
+        { text: "assets/deploy-checklist.md", level: 3 },
+      ];
+      const [remaining, setRemaining] = useState(sortItems);
+      const [feedback, setFeedback] = useState(null);
+
+      function assignItem(item, targetLevel) {
+        if (item.level === targetLevel) {
+          setSorted(s => ({ ...s, [targetLevel]: [...s[targetLevel], item] }));
+          setRemaining(r => r.filter(i => i !== item));
+          setFeedback({ correct: true, text: "Correct! " + (targetLevel === 1 ? "Always loaded — keeps context lean." : targetLevel === 2 ? "Loaded when triggered — the main instructions." : "On demand only — heavy detail stays out of context until needed.") });
+        } else {
+          setFeedback({ correct: false, text: "Not quite. " + (item.level === 1 ? "This is frontmatter (Level 1) — it's always loaded so Claude can route to your skill." : item.level === 2 ? "This belongs in the SKILL.md body (Level 2) — core instructions loaded when the skill triggers." : "This is a bundled resource (Level 3) — referenced by path, loaded only when Claude navigates to it.") });
+        }
+        setTimeout(() => setFeedback(null), 3000);
+      }
+
+      return html`
+        <div>
+          <h2 class="text-3xl font-bold text-white mb-2">Progressive Disclosure</h2>
+          <p class="text-slate-400 mb-8">Skills don't dump everything into Claude's context at once. They use a 3-level system that loads information progressively — only what's needed, when it's needed.</p>
+
+          ${phase === 'explore' && html`
+            <div class="space-y-4 mb-8">
+              ${disclosureLevels.map(l => html`
+                <button key=${l.level} onClick=${() => setActiveLevel(activeLevel === l.level ? null : l.level)}
+                  class=${"w-full text-left rounded-lg border transition " + (activeLevel === l.level ? "border-" + l.color + "-500 bg-" + l.color + "-950/20" : "border-slate-700 bg-slate-800 hover:border-slate-600")}>
+                  <div class="p-5">
+                    <div class="flex items-center justify-between mb-1">
+                      <div class="flex items-center gap-3">
+                        <span class=${"text-" + l.color + "-400 font-mono font-bold"}>L${l.level}</span>
+                        <span class="text-white font-semibold">${l.name}</span>
+                      </div>
+                      <div class="flex items-center gap-3">
+                        <span class="text-slate-500 text-sm">${l.size}</span>
+                        <span class=${"text-xs px-2 py-0.5 rounded-full border " + (l.level === 1 ? "border-amber-700 text-amber-400 bg-amber-950/50" : l.level === 2 ? "border-blue-700 text-blue-400 bg-blue-950/50" : "border-purple-700 text-purple-400 bg-purple-950/50")}>${l.when}</span>
+                      </div>
+                    </div>
+                    ${activeLevel === l.level && html`
+                      <div class="mt-4 fade-in">
+                        <p class="text-slate-300 text-sm mb-3">${l.detail}</p>
+                        <div class="flex flex-wrap gap-2">
+                          ${l.items.map(item => html`
+                            <span class="font-mono text-xs px-2 py-1 rounded bg-slate-900 text-slate-400 border border-slate-700">${item}</span>
+                          `)}
+                        </div>
+                      </div>
+                    `}
+                  </div>
+                </button>
+              `)}
+            </div>
+            <div class="text-center">
+              <button onClick=${() => setPhase('sort')} class="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-lg font-medium text-white transition">Try Sorting →</button>
+            </div>
+          `}
+
+          ${phase === 'sort' && html`
+            <div class="fade-in">
+              <p class="text-slate-400 mb-6">Sort these items into the correct level. Click an item, then click the level it belongs to.</p>
+
+              ${remaining.length > 0 ? html`
+                <div class="bg-slate-800 rounded-lg p-4 border border-slate-700 mb-6">
+                  <div class="text-slate-500 text-xs mb-3">ITEMS TO SORT (${remaining.length} remaining)</div>
+                  <div class="flex flex-wrap gap-2">
+                    ${remaining.map((item, i) => html`
+                      <span key=${i} class="font-mono text-xs px-3 py-1.5 rounded bg-slate-900 text-slate-300 border border-slate-600">${item.text}</span>
+                    `)}
+                  </div>
+                </div>
+                <div class="grid grid-cols-3 gap-3 mb-4">
+                  ${disclosureLevels.map(l => html`
+                    <div class=${"rounded-lg border p-4 " + "border-" + l.color + "-800/50 bg-" + l.color + "-950/10"}>
+                      <div class=${"text-" + l.color + "-400 font-mono text-xs font-bold mb-2"}>L${l.level}: ${l.name}</div>
+                      <div class="space-y-1 min-h-[60px]">
+                        ${sorted[l.level].map(item => html`
+                          <div class="font-mono text-xs text-slate-400 bg-slate-900/50 rounded px-2 py-1">${item.text}</div>
+                        `)}
+                      </div>
+                      ${remaining.length > 0 && html`
+                        <button onClick=${() => { const item = remaining[0]; assignItem(item, l.level); }}
+                          class=${"mt-2 w-full text-xs py-1.5 rounded border border-" + l.color + "-700/50 text-" + l.color + "-400 hover:bg-" + l.color + "-950/30 transition"}>
+                          Place here
+                        </button>
+                      `}
+                    </div>
+                  `)}
+                </div>
+                ${feedback && html`
+                  <div class=${"text-center text-sm py-2 fade-in " + (feedback.correct ? "text-green-400" : "text-red-400")}>${feedback.text}</div>
+                `}
+              ` : html`
+                <div class="text-center fade-in">
+                  <div class="text-2xl font-bold text-white mb-4">All sorted!</div>
+                  <p class="text-slate-400 mb-4">The key insight: <span class="text-blue-400 font-medium">what goes where matters more than what you write</span>. A 2000-line SKILL.md with everything inlined wastes context. The same content split across 3 levels loads only what's needed.</p>
+                  <button onClick=${() => setPhase('reveal')} class="px-6 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium text-white transition">See the Big Picture →</button>
+                </div>
+              `}
+            </div>
+          `}
+
+          ${phase === 'reveal' && html`
+            <div class="fade-in">
+              <div class="bg-slate-800 rounded-lg p-6 border border-slate-700">
+                <p class="text-white font-medium mb-4">Why progressive disclosure is non-negotiable:</p>
+                <div class="space-y-3 text-sm">
+                  <div class="flex gap-3"><span class="text-amber-400 font-bold shrink-0">Context is finite.</span><span class="text-slate-300">Claude's context window holds everything — your conversation, file reads, command output. Every token your skill consumes is a token that can't be used for actual work.</span></div>
+                  <div class="flex gap-3"><span class="text-blue-400 font-bold shrink-0">Performance degrades.</span><span class="text-slate-300">LLM performance drops as context fills. A bloated skill doesn't just waste tokens — it makes Claude worse at following your instructions.</span></div>
+                  <div class="flex gap-3"><span class="text-purple-400 font-bold shrink-0">Descriptions compete.</span><span class="text-slate-300">All skill descriptions share a ~15K character budget. The more skills you have, the more each description gets compressed. Keep them tight.</span></div>
+                </div>
+              </div>
+            </div>
+          `}
+        </div>
+      `;
+    }
+
+    // ── Section 2: Context Budget Calculator ─────────────────
+
+    function ContextBudget() {
+      const [enabled, setEnabled] = useState(budgetItems.map(() => true));
+      const totalChars = budgetItems.reduce((sum, item, i) => enabled[i] ? sum + item.chars + item.name.length + 5 : sum, 0);
+      const budget = 8000;
+      const pct = Math.min((totalChars / budget) * 100, 100);
+      const overBudget = totalChars > budget;
+      const truncatedAt = 250;
+
+      function toggle(idx) {
+        setEnabled(e => e.map((v, i) => i === idx ? !v : v));
+      }
+
+      const enabledCount = enabled.filter(Boolean).length;
+
+      return html`
+        <div>
+          <h2 class="text-3xl font-bold text-white mb-2">Context Budget</h2>
+          <p class="text-slate-400 mb-8">All your skill descriptions share a character budget (~8K chars, scaling to 1% of context window). Toggle skills on/off and watch the budget. Each description is capped at 250 characters.</p>
+
+          <div class="mb-6">
+            <div class="flex justify-between text-sm mb-2">
+              <span class="text-slate-400">${enabledCount} skills enabled · ${totalChars.toLocaleString()} chars used</span>
+              <span class=${overBudget ? "text-red-400 font-medium" : "text-slate-400"}>${budget.toLocaleString()} char budget</span>
+            </div>
+            <div class="h-3 bg-slate-800 rounded-full overflow-hidden">
+              <div class=${"h-full rounded-full transition-all duration-300 " + (pct > 90 ? "bg-red-500" : pct > 70 ? "bg-amber-500" : "bg-blue-500")} style=${{ width: Math.min(pct, 100) + '%' }}></div>
+            </div>
+            ${overBudget && html`<p class="text-red-400 text-xs mt-2 fade-in">Over budget! Descriptions will be truncated or dropped. Some skills may become invisible to Claude.</p>`}
+          </div>
+
+          <div class="space-y-2">
+            ${budgetItems.map((item, i) => html`
+              <button key=${i} onClick=${() => toggle(i)}
+                class=${"w-full text-left flex items-center gap-3 rounded-lg px-4 py-3 border transition " +
+                  (enabled[i] ? "border-slate-700 bg-slate-800" : "border-slate-800 bg-slate-900 opacity-50")}>
+                <div class=${"w-5 h-5 rounded border-2 shrink-0 flex items-center justify-center transition " +
+                  (enabled[i] ? "border-blue-500 bg-blue-500" : "border-slate-600")}>
+                  ${enabled[i] && html`<svg class="w-3 h-3 text-white" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="2" fill="none"/></svg>`}
+                </div>
+                <span class="text-amber-400 font-mono text-sm w-36 shrink-0">${item.name}</span>
+                <span class="text-slate-400 text-xs flex-1 truncate">${item.desc.slice(0, truncatedAt)}</span>
+                <span class="text-slate-600 text-xs font-mono shrink-0">${item.chars}ch</span>
+              </button>
+            `)}
+          </div>
+
+          <div class="mt-6 bg-slate-800 rounded-lg p-4 border border-slate-700">
+            <p class="text-slate-400 text-sm"><span class="text-white font-medium">The math:</span> With 8 skills averaging ~115 chars each, you're using ~920 chars — well within budget. But at 30-50 skills, descriptions start getting truncated. Front-load the critical trigger phrases in your description so they survive truncation.</p>
+          </div>
+        </div>
+      `;
+    }
+
+    // ── Section 3: Architecture Patterns ─────────────────────
+
+    function ArchitecturePatterns() {
+      const [round, setRound] = useState(0);
+      const [pick, setPick] = useState(null);
+      const [score, setScore] = useState(0);
+      const done = round >= patternQuiz.length;
+      const q = patternQuiz[round];
+
+      const patterns = [
+        { name: "Monoskill", icon: "📄", desc: "Single SKILL.md, no extras", example: "Code style guidelines, API conventions" },
+        { name: "Scripted", icon: "⚙️", desc: "SKILL.md + scripts/", example: "Dashboard generator, data visualizer" },
+        { name: "Thin Router", icon: "🗂️", desc: "Lean SKILL.md → 10-30+ references", example: "Angular skill (30+ topic files)" },
+        { name: "Orchestrator", icon: "🔗", desc: "Multi-step, multi-tool coordination", example: "Customer onboarding across MCPs" },
+        { name: "Forked", icon: "🔀", desc: "context: fork in subagent", example: "Codebase analysis, deep research" },
+      ];
+
+      function choose(name) {
+        setPick(name);
+        const opt = q.options.find(o => o.name === name);
+        if (opt && opt.correct) setScore(s => s + 1);
+      }
+
+      return html`
+        <div>
+          <h2 class="text-3xl font-bold text-white mb-2">Architecture Patterns</h2>
+          <p class="text-slate-400 mb-6">Skills come in 5 structural patterns. Each solves a different problem.</p>
+
+          <div class="grid grid-cols-5 gap-2 mb-8">
+            ${patterns.map(p => html`
+              <div class="bg-slate-800 rounded-lg p-3 border border-slate-700 text-center">
+                <div class="text-2xl mb-1">${p.icon}</div>
+                <div class="text-white font-medium text-xs mb-1">${p.name}</div>
+                <div class="text-slate-500 text-xs leading-tight">${p.desc}</div>
+              </div>
+            `)}
+          </div>
+
+          <p class="text-slate-400 mb-6 font-medium">Match the scenario to the right pattern:</p>
+
+          ${!done && html`
+            <div class="fade-in" key=${round}>
+              <div class="flex justify-between text-sm text-slate-500 mb-4">
+                <span>Scenario ${round + 1} of ${patternQuiz.length}</span>
+                <span>${score} correct</span>
+              </div>
+              <div class="bg-blue-950/40 rounded-lg p-4 mb-6 border border-blue-800/50">
+                <p class="text-white">${q.scenario}</p>
+              </div>
+              <div class="space-y-2">
+                ${q.options.map(o => {
+                  const selected = pick === o.name;
+                  const showResult = pick !== null;
+                  let cls = "border-slate-700 hover:border-slate-500 cursor-pointer";
+                  if (showResult && o.correct) cls = "border-green-500 bg-green-950/20";
+                  else if (showResult && selected && !o.correct) cls = "border-red-500 bg-red-950/20";
+                  else if (showResult) cls = "border-slate-800 opacity-50";
+                  return html`
+                    <button key=${o.name} onClick=${() => !pick && choose(o.name)} disabled=${!!pick}
+                      class=${"w-full text-left rounded-lg p-4 border transition " + cls + (pick ? " cursor-default" : "")}>
+                      <span class="text-white font-medium">${o.name}</span>
+                      ${showResult && (selected || o.correct) && html`
+                        <p class="text-xs mt-2 ${o.correct ? 'text-green-300/80' : 'text-red-300/80'} fade-in">${o.why}</p>
+                      `}
+                    </button>
+                  `;
+                })}
+              </div>
+              ${pick && html`
+                <div class="text-center mt-4">
+                  <button onClick=${() => { setPick(null); setRound(r => r + 1); }} class="px-6 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium text-white transition">
+                    ${round < patternQuiz.length - 1 ? "Next Scenario →" : "See Results →"}
+                  </button>
+                </div>
+              `}
+            </div>
+          `}
+
+          ${done && html`
+            <div class="text-center fade-in">
+              <div class="text-4xl font-bold text-white mb-2">${score} / ${patternQuiz.length}</div>
+              <p class="text-slate-400 mb-4">Pattern choice is driven by <span class="text-blue-400 font-medium">what the skill needs</span>, not personal preference.</p>
+              <div class="bg-slate-800 rounded-lg p-5 border border-slate-700 text-left max-w-lg mx-auto text-sm">
+                <p class="text-white font-medium mb-3">Decision heuristic:</p>
+                <div class="space-y-2 text-slate-300">
+                  <div>Simple rules/guidelines? → <span class="text-amber-400">Monoskill</span></div>
+                  <div>Needs computation/validation? → <span class="text-amber-400">Scripted</span></div>
+                  <div>Large knowledge domain (10+ subtopics)? → <span class="text-amber-400">Thin Router</span></div>
+                  <div>Multi-step, multi-tool workflow? → <span class="text-amber-400">Orchestrator</span></div>
+                  <div>Reads many files / needs isolation? → <span class="text-amber-400">Forked</span></div>
+                </div>
+              </div>
+            </div>
+          `}
+        </div>
+      `;
+    }
+
+    // ── Section 4: Bridge ────────────────────────────────────
+
+    function Bridge() {
+      return html`
+        <div class="text-center py-8">
+          <div class="max-w-lg mx-auto">
+            <div class="text-blue-400 font-mono text-sm tracking-widest mb-4">THE THRESHOLD CONCEPT</div>
+            <h2 class="text-3xl font-bold text-white mb-6">Skills Are Information Architecture</h2>
+            <div class="text-left bg-slate-800 rounded-lg p-6 border border-slate-700 mb-8">
+              <p class="text-slate-300 text-sm mb-4">The hard part of building a skill isn't writing good markdown. It's making three architectural decisions:</p>
+              <div class="space-y-3 text-sm">
+                <div class="flex gap-3">
+                  <span class="text-amber-400 font-mono font-bold shrink-0">L1</span>
+                  <span class="text-slate-300"><span class="text-white font-medium">What goes in the description?</span> The routing label that wins an LLM reasoning competition against every other installed skill.</span>
+                </div>
+                <div class="flex gap-3">
+                  <span class="text-blue-400 font-mono font-bold shrink-0">L2</span>
+                  <span class="text-slate-300"><span class="text-white font-medium">What goes in the body?</span> The minimal instruction set Claude needs to execute. Not a reference manual — a playbook.</span>
+                </div>
+                <div class="flex gap-3">
+                  <span class="text-purple-400 font-mono font-bold shrink-0">L3</span>
+                  <span class="text-slate-300"><span class="text-white font-medium">What gets offloaded to resources?</span> Everything else — API docs, templates, detailed examples, scripts. Claude pulls these in only when the current task demands them.</span>
+                </div>
+              </div>
+            </div>
+            <div class="bg-slate-800/50 rounded-lg p-5 border border-slate-700">
+              <p class="text-slate-400 text-sm mb-3">You now understand the structure. Next: the controls that determine how much autonomy your skill has — when it fires, what tools it can use, and how it executes.</p>
+              <a href="03-autonomy-control-surface.html" class="inline-block px-6 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-lg font-medium text-white transition">Module 3: The Autonomy Control Surface →</a>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ── App ──────────────────────────────────────────────────
+
+    const sections = [
+      { component: TitleSection },
+      { component: ProgressiveDisclosure },
+      { component: ContextBudget },
+      { component: ArchitecturePatterns },
+      { component: Bridge },
+    ];
+
+    function App() {
+      const [section, setSection] = useState(0);
+      const S = sections[section].component;
+      return html`
+        <div>
+          <${ProgressBar} current=${section} total=${sections.length} />
+          <div class="max-w-3xl mx-auto px-6 pt-20 pb-12">
+            <div class="fade-in" key=${section}><${S} /></div>
+            <${Nav} section=${section} total=${sections.length} setSection=${setSection} />
+          </div>
+        </div>
+      `;
+    }
+
+    render(html`<${App} />`, document.getElementById('app'));
+  </script>
+</body>
+</html>
